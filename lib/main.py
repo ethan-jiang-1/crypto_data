@@ -1,6 +1,3 @@
-# from connexion.resolver import RestyResolver
-# import connexion
-
 import numpy as np
 import pandas as pd
 import cryptocompare as cc
@@ -71,8 +68,3 @@ if __name__ == '__main__':
 
     # scatter plot matrix
     sns.pairplot(closes.loc['2018', ['BTC', 'ETH', 'XRP', 'VERI', 'LTC']].pct_change().dropna())
-
-
-    # app = connexion.App(__name__, 9090, specification_dir='ops/openapi/swagger/')
-    # app.add_api('swagger.yaml', resolver=RestyResolver('api'))
-    # app.run()
