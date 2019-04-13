@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # in 24 hours against ALL its trading pairs
     coin_data = coin_data[coin_data['TOTALVOLUME24H'] != 0]
 
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     # get the last month’s historical daily data for the 100 top coins by market cap, stored as a dictionary of DataFrames
     top_coins = coin_data[:100].index
     df_dict = {}
