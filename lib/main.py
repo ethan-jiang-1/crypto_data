@@ -1,23 +1,24 @@
-# import btc_apr_1_2012_to_apr_14_2019.csv
-# regularize?, preprocess?
-# vectorize
-# train
-
 import numpy as np
-import h5py
+import pandas as pd
+from decimal import Decimal
+import pprint
 import matplotlib.pyplot as plt
-from testCases import *
-from dnn_utils import sigmoid, sigmoid_backward, relu, relu_backward
+import csv
 
-%matplotlib inline
-plt.rcParams['figure.figsize'] = (5.0, 4.0) # set default size of plots
-plt.rcParams['image.interpolation'] = 'nearest'
-plt.rcParams['image.cmap'] = 'gray'
-
-%load_ext autoreload
-%autoreload 2
+pd.options.display.float_format = '{:,.2f}'.format
 
 np.random.seed(1)
+
+# btc is Pandas DataFrame of stacked csv columns
+btc = pd.read_csv('btc_apr_1_2012_to_apr_14_2019.csv')
+print(btc.dtypes)
+print(btc['Price'])
+btc['Price'] = btc['Price'].apply(lambda p: p.replace(',', ''))
+btc['Price'] = btc['Price'].apply(Decimal) # avoid float imprecision
+btc['Price'] = btc['Price'].apply(lambda p: round(p,2))
+print(btc['Price'])
+# changes = btc['Change %']
+# ranges = btc['High'] - btc['Low']
 
 # def initialize_parameters():
 #
