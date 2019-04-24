@@ -2,8 +2,15 @@
 
 #### Compare and Contrast traditional time series models with Deep Neural Nets for Cryptoasset Price Forecasting
 
-###### Deep Learning vs. ARMA, VARMA, Garch for technical analysis of Cryptoassets
+###### Deep Learning technical analysis of Cryptoassets
 
-## Sources
+#### Data Sources
 
-- https://www.cryptodatadownload.com/data/northamerican/
+- [cryptodatadownload.com](https://www.cryptodatadownload.com/data/northamerican/)
+
+#### Resources
+- [RNN + LSTM](https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/)
+
+- [Signal Processing](https://medium.com/@alexrachnog/deep-learning-the-final-frontier-for-signal-processing-and-time-series-analysis-734307167ad6)
+
+- [LSTM Fully Convolutional for TS](https://arxiv.org/pdf/1709.05206.pdf)
