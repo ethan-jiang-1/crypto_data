@@ -4,6 +4,20 @@
 
 ###### Deep Learning technical analysis of Cryptoassets
 
+
+#### Papers
+
+- [LSTM, R2N2](http://cs230.stanford.edu/files_winter_2018/projects/6940331.pdf
+)
+
+- [Market + News](
+http://cs230.stanford.edu/projects_fall_2018/reports/12444265.pdf)
+
+- [Pairs Trading](
+http://cs230.stanford.edu/projects_fall_2018/reports/12446738.pdf)
+
+- [USD/JPY Open price forecast](http://cs230.stanford.edu/projects_spring_2018/reports/8284938.pdf)
+
 #### Data Sources
 
 - [cryptodatadownload.com](https://www.cryptodatadownload.com/data/northamerican/)
