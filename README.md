@@ -28,3 +28,16 @@ http://cs230.stanford.edu/projects_fall_2018/reports/12446738.pdf)
 - [Signal Processing](https://medium.com/@alexrachnog/deep-learning-the-final-frontier-for-signal-processing-and-time-series-analysis-734307167ad6)
 
 - [LSTM Fully Convolutional for TS](https://arxiv.org/pdf/1709.05206.pdf)
+
+
+SU Project Papers:
+
+http://cs230.stanford.edu/projects_fall_2018/reports/12447173.pdf 
+
+http://cs230.stanford.edu/projects_fall_2018/reports/12444910.pdf
+
+http://cs230.stanford.edu/projects_fall_2018/reports/12446990.pdf
+
+http://cs230.stanford.edu/projects_fall_2018/reports/12444265.pdf 
+
+http://cs230.stanford.edu/projects_fall_2018/reports/12446738.pdf
