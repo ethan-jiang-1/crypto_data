@@ -29,6 +29,16 @@ http://cs230.stanford.edu/projects_fall_2018/reports/12446738.pdf)
 
 - [LSTM Fully Convolutional for TS](https://arxiv.org/pdf/1709.05206.pdf)
 
+- [ARIMA] (https://www.analyticsvidhya.com/blog/2018/10/predicting-stock-price-machine-learningnd-deep-learning-techniques-python/)
+
+-[VAR] (https://www.analyticsvidhya.com/blog/2018/09/multivariate-time-series-guide-forecasting-modeling-python-codes/)
+
+- [python statsmodel] (https://www.statsmodels.org/dev/index.html)
+
+-[EDA] (https://medium.com/activewizards-machine-learning-company/bitcoin-price-forecasting-with-deep-learning-algorithms-eb578a2387a3)
+
+-
+
 
 SU Project Papers:
 
