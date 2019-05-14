@@ -1,0 +1,82 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{Time Series Forecasting with Deep Learning Models}
+\author{Eric Steen, Orion Darley, Ryan Silva – Stanford University }
+\date{May 2019}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+The purpose of this research is to build, apply, benchmark the effectiveness of deep learning neural networks used to predict price changes in a cryptocurrency market. Long-Short Term Memory (LSTM) and Recurrent Neural Networks (RNN) have been widely popularized in the last several years with published research emphasizing their cutting-edge effectiveness.
+\paragraph{}
+Time is a critical dimension to model phenomena in the natural world and in business process or markets as well. In application, time series modeling of financial assets requires specific knowledge related to econometrics, however time-sensitive family neural networks do not require exact specificity of the relationship found between models’ outputs and inputs; the relationship of seasonality, cyclical trends, etc. By studying this family of deep learning models specific to the cryptocurrency market, researchers observe and evaluate the models on criteria and recommend the best-in-class models specific to the cryptocurrency market.
+\paragraph{}
+Traditional econometric models such as Autoregressive Integrated Moving Average (ARIMA), Vector Autoregression (VAR) models, and related model families will be examined and included in the benchmark evaluation. Mode results evaluation should be based the following statistics or factors: MAE, RMSE, MAPE, Adjusted R2, number of hyper-parameters, number of parameters, bias-variance trade-off, computational effort, interpretability, and longevity.
+
+\paragraph{}
+Research questions initially posed include:
+\begin{enumerate}
+    \item Can Deep Neural Nets outperform traditional time series models in forecasting price? If not, what, if any, advantages would the NNet approach provide?
+    \item What effect does removing anomalous data (outliers) have on our predictions, and conversely, what effect does injecting chaos by introducing various “Black Swan” events (highly improbable examples with disproportionate negative impact on desired outcomes) have on our predictions? This is of practical concern as these events continue to confound practitioners.
+    \item How do hyperparameters affect the predictive ability of the LSTM and RNNs? Are deeper nets able to achieve better performance than shallow ones, or are one to two hidden layers a more effective approach for this type of task? What is an appropriate dropout rate for our task?
+\end{enumerate}
+
+There are several papers which have provided inspiration and guidance on various aspects of this inquiry. One paper1 claims that deep neural nets approached industry leading performance on time series forecasting of energy load (demand). The authors would be pleasantly surprised at similar results.
+
+\section{Traditional Approaches}
+\paragraph{}
+Before the deep learning era, mathematical models and approaches for time series and signal processing included the following:
+
+\begin{enumerate}
+    \item Time domain analysis: how the series evolves in relation to time. Temporal statistical features.
+    \item Frequency domain analysis: how the series fluctuates in amplitude. Signal Processing, Fourier analysis and wavelets are common.
+    \item Cluster Analysis: 'Nearest Neighbors' accounts for signals of differing length, where the notion of similarity breaks down.
+    \item (S)AR(I)MA(X) models: very popular; based on linear self-dependence inside of time series (autocorrelation) which can be used to explain future fluctuations.
+    \item Decomposition: divide the series into logical parts that can be summed or multiplied to obtain the initial time series: trend part, seasonal part, and residuals.
+    \item Nonlinear dynamics: differential equations (ordinary, partial, stochastic, etc.) for modeling dynamical systems that are in fact signals or time series.
+    \item Machine learning: The subject of this paper. Can include any or all of the above. While it may or may not be wise to rely on human-in-the-loop ( and thus human-biased mathematical models and features ) – we ultimately seek near real-time automated decision support capabilities and with deep learning models we can determine feasibility along a vast swath of dimensions in both time and frequency domains.
+\end{enumerate}
+
+\section{Deep Learning Approach}
+\paragraph{}We use Deep Recurrent Neural Networks to x, y, z.
+\subsection{Our Model – Deep Recurrent Neural Nets with LSTM}
+\subsubsection{Hyperparameters}
+\begin{enumerate}
+    \item Layers
+    \item alpha
+    \item gamma
+    \item dropout
+\end{enumerate}
+\subsubsection{Dataset}
+\paragraph{}
+Our dataset consists of the following:
+\begin{enumerate}
+    \item Bitcoin prices on a daily basis from x1 to x2
+    \item Bitcoin prices on an hourly basis from x1 to x2
+\end{enumerate}
+
+
+\subsection{Feature Engineering}
+
+
+
+
+% \begin{figure}[h!]
+% \centering
+% \includegraphics[scale=1.7]{universe}
+% \caption{The Universe}
+% \label{fig:universe}
+% \end{figure}
+
+\section{Conclusion}
+``Time Series, in conjunction with deep neural nets is a win, win proposition for quantitative analysis of cryptoassets.'' \citep{adams1995hitchhiker}
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}
