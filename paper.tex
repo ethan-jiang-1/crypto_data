@@ -20,7 +20,7 @@
 \maketitle
 
 \section{Introduction}
-The purpose of this research is to benchmark the effectiveness of deep learning neural networks on price forecasting of bitcoin. Long-Short Term Memory (LSTM) and Recurrent Neural Networks (RNN) are explored due to their cutting-edge effectiveness. We integrate other mathematical methods and models into our research, such as: Time/Frequency domain analysis, Cluster Analysis, (S)AR(I)MA(X) models, Decomposition, Nonlinear dynamics, Machine learning.
+The purpose of this research is to benchmark the effectiveness of deep learning neural networks on price forecasting of bitcoin. Long-Short Term Memory (LSTM) and Recurrent Neural Networks (RNN) are explored due to their cutting-edge effectiveness. We integrate (S)AR(I)MA(X) models into our RNN model.
 
 \paragraph{}
 Research questions initially posed include:
@@ -42,30 +42,32 @@ Our team experimented with several LSTM models and are still deciding a model st
 \paragraph{}
 The results are fairly similar, however a more focused strategy for deep learning in time series needs to be developed (see results below).
 
-\section{Deep Learning for Time Series}
-\paragraph{We use Deep Recurrent Neural Networks to x, y, z.}
+\includegraphics[width=9cm]{download}
+
+\section{Deep Recurrent Neural Nets for Time Series}
+\paragraph{We use RNN's to predict bitcoin prices.}
 
 \subsection{Dataset}
 \paragraph{}
 Our dataset consists of the following:
 \begin{enumerate}
-    \item Bitcoin prices on a daily basis from  to x2
-    \item Bitcoin prices on an hourly basis from x1 to x2
+    \item Bitcoin prices on a daily basis since 2012
+    \item Bitcoin prices on an hourly basis since july 2017
 \end{enumerate}
 
-\subsection{Regularization}
+\subsubsection{Regularization}
 \paragraph{}
-We regard the old wall street maxim 'The trend is your friend' to be a good starting point for the evaluation of deep learning on financial time series, so to reduce noise that might prevent the machine learning algorithm from learning the trend and structure, we will explore regularizing the data with wavelet transformation using the \href{https://pywavelets.readthedocs.io/en/latest/#main-features}{PyWavelets library.}
+We regard the old wall street maxim 'The trend is your friend' to be a good starting point for the evaluation of deep learning on financial time series, so to reduce noise that might prevent the machine learning algorithm from learning the trend, we will explore regularizing the data with wavelet transformation using the \href{https://pywavelets.readthedocs.io/en/latest/#main-features}{PyWavelets library.}
 
 \paragraph{}
-The process is as follows:
+The process to regularize is as follows:
 \begin{enumerate}
-\item The data is transformed using Wavelet transform.
+\item The data is transformed using a Wavelet transform.
 \item Coefficients more than 1 standard deviation away from the mean of coefficients are removed.
 \item Inverse transform the new coefficients to get the denoised data.
 \end{enumerate}
 
-\item Here is the integral form of wavelet transformation to denoise time series data:
+\item Here is the integral form of the wavelet transformation used by the \textit{PyWavelets} library:
 \[\left[W_\psi f\right](a, b) = \frac{1}{\sqrt{|a|}} \int_{-\infty}^\infty \overline{\psi\left(\frac{x-b}{a}\right)}f(x)dx\]
 
 \subsection{Feature Engineering}
@@ -74,18 +76,21 @@ The process is as follows:
 We explore a variety of data preprocessing and augmentation techniques gathered from the literature, and implement them as part of our EDA (Exploratory Data Analysis). Our EDA includes the following:
 
 \begin{enumerate}
-\item  We draw inspiration from the R2N2 \cite{1_website} algorithm, which uses the VAR and VARMAX algorithms to pre-process the time series data and produce residuals, which are used as input to an LSTM. We show that the VAR model, using the features ‘Price’ (closing value), ‘Open’, ‘High’, ‘Low’, ‘Volume’, and ‘Change \%’, performs quite well in one day forecasts. We can use these techniques to augment our data, providing both the raw features, as well as VAR and/or VARMAX residuals.
+\item  We draw inspiration from the R2N2 \cite{1_website} algorithm, which uses the VAR and VARMAX algorithms to pre-process the time series data and produce residuals, which are used as input to an LSTM. We show that the VAR model performs quite well in one day forecasts. We can use these techniques to augment our data, providing both the raw features, as well as VAR and/or VARMAX residuals.
 
-\item Found some success by pre-processing the data using filters, namely the Kalman and Wavelet filters \cite{2_website}. They used the pyKalman and pyWavelet libraries to produce a denoised version of the time series and input this into the model. We can potentially use this preprocessing method as another feature into our Deep Learning Models.
+\item Found some success by pre-processing the data using filters, namely the Kalman and Wavelet filters \cite{2_website}.
 
-\item Gives multiple technical indicators for data augmentation including momentum, trend, volatility, and volume. These can be calculated with the python ‘TA’ library \cite{3_website}, and we have examples in our code repository on our bitcoin dataset. These features can be used to further augment the LSTM input.
+\item \cite{3_website} gives multiple technical indicators for data augmentation including momentum, trend, volatility, and volume. These can be calculated with the python ‘TA’ library . These features can be used to further augment the LSTM input.
 
-\item Proposes the technique of segmenting the time series into a number of consecutive 'windows'  \cite{4_website}, and a label which is the next window of data. Preprocessing the data into this format and saving to disk can save a lot of computation time each run. There are also many hyperparameters here, such as the size of the window, how many windows to include in a training example, if and how much he windows overlap, etc.
+\item \cite{4_website} proposes the technique of segmenting the time series into a number of consecutive 'windows'  , and a label which is the next window of data. Preprocessing the data into this format and saving to disk can save a lot of computation time each run. There are also many hyperparameters here, such as the size of the window, how many windows to include in a training example, if and how much he windows overlap, etc.
 \end{enumerate}
 
 \paragraph{}
 We plan to use the root mean squared error (RMSE) between predicted and true financial time series as the cost function and evaluation metric for our models, as implemented in the EDA notebook. We also plan to build out a data pipeline using simple data stores (redis or sqlite).
 
+\section{Code}
+Our code is at \url{https://github.com/ericsteen/crypto_data}
+The code of particular interest is in \verb btc_lstm_final_v2.ipynb  and \verb data_experiments.ipynb. Data gathering scripts are located in /lib as well.
 % \subsection{Hyperparameters}
 % \begin{enumerate}
 %     \item Layers
