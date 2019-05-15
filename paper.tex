@@ -7,72 +7,103 @@
 
 \usepackage{natbib}
 \usepackage{graphicx}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+}
 
 \begin{document}
 
 \maketitle
 
 \section{Introduction}
-The purpose of this research is to build, apply, benchmark the effectiveness of deep learning neural networks used to predict price changes in a cryptocurrency market. Long-Short Term Memory (LSTM) and Recurrent Neural Networks (RNN) have been widely popularized in the last several years with published research emphasizing their cutting-edge effectiveness.
-\paragraph{}
-Time is a critical dimension to model phenomena in the natural world and in business process or markets as well. In application, time series modeling of financial assets requires specific knowledge related to econometrics, however time-sensitive family neural networks do not require exact specificity of the relationship found between models’ outputs and inputs; the relationship of seasonality, cyclical trends, etc. By studying this family of deep learning models specific to the cryptocurrency market, researchers observe and evaluate the models on criteria and recommend the best-in-class models specific to the cryptocurrency market.
-\paragraph{}
-Traditional econometric models such as Autoregressive Integrated Moving Average (ARIMA), Vector Autoregression (VAR) models, and related model families will be examined and included in the benchmark evaluation. Mode results evaluation should be based the following statistics or factors: MAE, RMSE, MAPE, Adjusted R2, number of hyper-parameters, number of parameters, bias-variance trade-off, computational effort, interpretability, and longevity.
+The purpose of this research is to benchmark the effectiveness of deep learning neural networks on price forecasting of bitcoin. Long-Short Term Memory (LSTM) and Recurrent Neural Networks (RNN) are explored due to their cutting-edge effectiveness. We integrate other mathematical methods and models into our research, such as: Time/Frequency domain analysis, Cluster Analysis, (S)AR(I)MA(X) models, Decomposition, Nonlinear dynamics, Machine learning.
 
 \paragraph{}
 Research questions initially posed include:
 \begin{enumerate}
     \item Can Deep Neural Nets outperform traditional time series models in forecasting price? If not, what, if any, advantages would the NNet approach provide?
-    \item What effect does removing anomalous data (outliers) have on our predictions, and conversely, what effect does injecting chaos by introducing various “Black Swan” events (highly improbable examples with disproportionate negative impact on desired outcomes) have on our predictions? This is of practical concern as these events continue to confound practitioners.
     \item How do hyperparameters affect the predictive ability of the LSTM and RNNs? Are deeper nets able to achieve better performance than shallow ones, or are one to two hidden layers a more effective approach for this type of task? What is an appropriate dropout rate for our task?
 \end{enumerate}
 
-There are several papers which have provided inspiration and guidance on various aspects of this inquiry. One paper1 claims that deep neural nets approached industry leading performance on time series forecasting of energy load (demand). The authors would be pleasantly surprised at similar results.
-
-\section{Traditional Approaches}
 \paragraph{}
-Before the deep learning era, mathematical models and approaches for time series and signal processing included the following:
+Our team experimented with several LSTM models and are still deciding a model strategy. The following steps are taken to measure the predicted values distance from ground truth:
 
 \begin{enumerate}
-    \item Time domain analysis: how the series evolves in relation to time. Temporal statistical features.
-    \item Frequency domain analysis: how the series fluctuates in amplitude. Signal Processing, Fourier analysis and wavelets are common.
-    \item Cluster Analysis: 'Nearest Neighbors' accounts for signals of differing length, where the notion of similarity breaks down.
-    \item (S)AR(I)MA(X) models: very popular; based on linear self-dependence inside of time series (autocorrelation) which can be used to explain future fluctuations.
-    \item Decomposition: divide the series into logical parts that can be summed or multiplied to obtain the initial time series: trend part, seasonal part, and residuals.
-    \item Nonlinear dynamics: differential equations (ordinary, partial, stochastic, etc.) for modeling dynamical systems that are in fact signals or time series.
-    \item Machine learning: The subject of this paper. Can include any or all of the above. While it may or may not be wise to rely on human-in-the-loop ( and thus human-biased mathematical models and features ) – we ultimately seek near real-time automated decision support capabilities and with deep learning models we can determine feasibility along a vast swath of dimensions in both time and frequency domains.
+\item Import bitcoin pricing from 2012-current, to include open price, close price, high and low prices, volume transacted, and percentage change over a daily interval.
+\item Plotted the distributions of each and determined the threshold for the training data. Most of the data is heavily skewed as to where past price changes and autocorrelation do not necessarily represent the current trend nor the near-future trend of Bitcoin prices.
+\item Scaled the data and created the training and test structure.
+\item Built four models using various parameters (various activation functions, hidden nodes, dropout rates, batch sizes, etc.)
+\item Benchmarked the predicted values for four models versus the actuals.
 \end{enumerate}
+\paragraph{}
+The results are fairly similar, however a more focused strategy for deep learning in time series needs to be developed (see results below).
 
-\section{Deep Learning Approach}
-\paragraph{}We use Deep Recurrent Neural Networks to x, y, z.
-\subsection{Our Model – Deep Recurrent Neural Nets with LSTM}
-\subsubsection{Hyperparameters}
-\begin{enumerate}
-    \item Layers
-    \item alpha
-    \item gamma
-    \item dropout
-\end{enumerate}
-\subsubsection{Dataset}
+\section{Deep Learning for Time Series}
+\paragraph{We use Deep Recurrent Neural Networks to x, y, z.}
+
+\subsection{Dataset}
 \paragraph{}
 Our dataset consists of the following:
 \begin{enumerate}
-    \item Bitcoin prices on a daily basis from x1 to x2
+    \item Bitcoin prices on a daily basis from  to x2
     \item Bitcoin prices on an hourly basis from x1 to x2
 \end{enumerate}
 
+\subsection{Regularization}
+\paragraph{}
+We regard the old wall street maxim 'The trend is your friend' to be a good starting point for the evaluation of deep learning on financial time series, so to reduce noise that might prevent the machine learning algorithm from learning the trend and structure, we will explore regularizing the data with wavelet transformation using the \href{https://pywavelets.readthedocs.io/en/latest/#main-features}{PyWavelets library.}
+
+\paragraph{}
+The process is as follows:
+\begin{enumerate}
+\item The data is transformed using Wavelet transform.
+\item Coefficients more than 1 standard deviation away from the mean of coefficients are removed.
+\item Inverse transform the new coefficients to get the denoised data.
+\end{enumerate}
+
+\item Here is the integral form of wavelet transformation to denoise time series data:
+\[\left[W_\psi f\right](a, b) = \frac{1}{\sqrt{|a|}} \int_{-\infty}^\infty \overline{\psi\left(\frac{x-b}{a}\right)}f(x)dx\]
 
 \subsection{Feature Engineering}
 
-% \begin{figure}[h!]
-% \centering
-% \includegraphics[scale=1.7]{universe}
-% \caption{The Universe}
-% \label{fig:universe}
-% \end{figure}
+\paragraph{}
+We explore a variety of data preprocessing and augmentation techniques gathered from the literature, and implement them as part of our EDA (Exploratory Data Analysis). Our EDA includes the following:
 
-\section{Conclusion}
-``Time Series, in conjunction with deep neural nets is a win, win proposition for quantitative analysis of cryptoassets.'' \citep{adams1995hitchhiker}
+\begin{enumerate}
+\item  We draw inspiration from the R2N2 \cite{1_website} algorithm, which uses the VAR and VARMAX algorithms to pre-process the time series data and produce residuals, which are used as input to an LSTM. We show that the VAR model, using the features ‘Price’ (closing value), ‘Open’, ‘High’, ‘Low’, ‘Volume’, and ‘Change \%’, performs quite well in one day forecasts. We can use these techniques to augment our data, providing both the raw features, as well as VAR and/or VARMAX residuals.
+
+\item Found some success by pre-processing the data using filters, namely the Kalman and Wavelet filters \cite{2_website}. They used the pyKalman and pyWavelet libraries to produce a denoised version of the time series and input this into the model. We can potentially use this preprocessing method as another feature into our Deep Learning Models.
+
+\item Gives multiple technical indicators for data augmentation including momentum, trend, volatility, and volume. These can be calculated with the python ‘TA’ library \cite{3_website}, and we have examples in our code repository on our bitcoin dataset. These features can be used to further augment the LSTM input.
+
+\item Proposes the technique of segmenting the time series into a number of consecutive 'windows'  \cite{4_website}, and a label which is the next window of data. Preprocessing the data into this format and saving to disk can save a lot of computation time each run. There are also many hyperparameters here, such as the size of the window, how many windows to include in a training example, if and how much he windows overlap, etc.
+\end{enumerate}
+
+\paragraph{}
+We plan to use the root mean squared error (RMSE) between predicted and true financial time series as the cost function and evaluation metric for our models, as implemented in the EDA notebook. We also plan to build out a data pipeline using simple data stores (redis or sqlite).
+
+% \subsection{Hyperparameters}
+% \begin{enumerate}
+%     \item Layers
+%     \item alpha
+%     \item gamma
+%     \item dropout
+% \end{enumerate}
+
+% \subsection{Our Model – Deep Recurrent Neural Nets with LSTM}
+% % \begin{figure}[h!]
+% % \centering
+% % \includegraphics[scale=1.7]{universe}
+% % \caption{The Universe}
+% % \label{fig:universe}
+% % \end{figure}
+
+% \section{Conclusion}
+% ``Time Series, in conjunction with deep neural nets is a win, win proposition for quantitative analysis of cryptoassets.'' \citep{adams1995hitchhiker}
 
 \bibliographystyle{plain}
 \bibliography{references}
