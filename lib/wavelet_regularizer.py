@@ -1,10 +1,16 @@
 """Keras Customized Wavelet Regularizer.
+
+TODO: Do we need? Other methods?
+
 https://pywavelets.readthedocs.io/en/latest/
+
+CODE:
 x = np.array(df.iloc[i: i + 11, j])
 (ca, cd) = pywt.dwt(x, "haar")
 cat = pywt.threshold(ca, np.std(ca), mode="soft")
 cdt = pywt.threshold(cd, np.std(cd), mode="soft")
 tx = pywt.idwt(cat, cdt, "haar")
+
 """
 from __future__ import absolute_import
 from __future__ import division
