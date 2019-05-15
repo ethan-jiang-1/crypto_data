@@ -7,6 +7,13 @@
 
 \usepackage{natbib}
 \usepackage{graphicx}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+}
 
 \begin{document}
 
@@ -60,6 +67,22 @@ Our dataset consists of the following:
     \item Bitcoin prices on a daily basis from x1 to x2
     \item Bitcoin prices on an hourly basis from x1 to x2
 \end{enumerate}
+\paragraph{}
+
+
+We regard the old wall street maxim 'The trend is your friend' to be a good starting point for the evaluation of deep learning on time series, so to reduce noise that might prevent the machine learning algorithm from learning the trend and structure, we will regularize the data with wavelet transformation using the \href{https://pywavelets.readthedocs.io/en/latest/#main-features}{PyWavelets library.}
+
+\paragraph{}
+The process is as follows:
+\begin{enumerate}
+\item The data is transformed using Wavelet transform.
+\item Coefficients more than 1 standard deviation away from the mean of coefficients are removed.
+\item Inverse transform the new coefficients to get the denoised data.
+\end{enumerate}
+
+\item Here is an example of how wavelet transforms denoise time series data:
+\[\left[W_\psi f\right](a, b) = \frac{1}{\sqrt{|a|}} \int_{-\infty}^\infty \overline{\psi\left(\frac{x-b}{a}\right)}f(x)dx\\]
+
 
 
 \subsection{Feature Engineering}
