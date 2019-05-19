@@ -16,13 +16,13 @@ from sklearn.preprocessing import MinMaxScaler
 
 DATA_PROVIDER = 'gemini'
 PRED_PAIR = 'BTCUSD'
-PRED_WINDOW = '1min'
-FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_WINDOW}.csv'
-WINDOW_LENGTH = 60 # price data window
+PRED_PERIOD = '1min'
+FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
+WINDOW_LEN = 60 # price data window
 FORECAST_LEN = 5 # how many data points in future to predict
 EPOCHS = 10
 BATCH_SIZE = 64
-NAME = f'{PRED_PAIR}-{WINDOW_LENGTH}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
+NAME = f'{PRED_PAIR}-{WINDOW_LEN}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
 COL_NAMES = ['time', 'date', 'symbol', 'open', 'high', 'low', 'close', 'volume']
 
 def classify(current, future):
@@ -52,11 +52,11 @@ def preprocess_df(df):
 
     seq_data = []
     # sliding window cache - old values drop off
-    prev_days = deque(maxlen=WINDOW_LENGTH)
+    prev_days = deque(maxlen=WINDOW_LEN)
 
     for i in df.values:
         prev_days.append([n for n in i[:-1]])
-        if len(prev_days) == WINDOW_LENGTH:
+        if len(prev_days) == WINDOW_LEN:
             seq_data.append([np.array(prev_days), i[-1]])
 
     random.shuffle(seq_data)
