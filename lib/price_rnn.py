@@ -35,12 +35,11 @@ def classify(current, future):
 # normalize, scale, balance
 def preprocess_df(df):
     df = df.drop('future', 1)
+
+    # normalize BTCUSD_close and BTCUSD_volume
     for col in df.columns:
         if col != 'target':
-            # start simple
             df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
-
-    df.dropna(inplace=True)
 
     seq_data = []
     # sliding window cache - old values drop off
