@@ -14,16 +14,19 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormal
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import MinMaxScaler
 
-DATA_DIR = 'data'
-DATA_PROVIDER = 'gemini'
+# HYPERPARAMETERS
 PRED_PAIR = 'BTCUSD'
 PRED_PERIOD = '1min'
-FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
 WINDOW_LEN = 60 # price data window
 FORECAST_LEN = 3 # how many data points in future to predict
 EPOCHS = 5
 BATCH_SIZE = 64
 SKIP_ROWS = 117400 # use for 'development' mode
+
+# FORMATTING, etc.
+DATA_DIR = 'data'
+DATA_PROVIDER = 'gemini'
+FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
 NAME = f'{PRED_PAIR}-{WINDOW_LEN}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
 COL_NAMES = ['time', 'date', 'symbol', 'open', 'high', 'low', 'close', 'volume']
 
@@ -37,22 +40,24 @@ def classify(current, future):
 # normalize, scale, balance
 def preprocess_df(df):
     df = df.drop('future', 1)
+
+    # normalize BTCUSD_close, BTCUSD_volume
     for col in df.columns:
         if col != 'target':
             # start simple
             df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
 
-    df.dropna(inplace=True)
-
+    # arrange data into seq -> target pairs for training
+    # to see how window or 'lookback' period effects prediction accuracy
     seq_data = []
     # sliding window cache - old values drop off
     prev_days = deque(maxlen=WINDOW_LEN)
-
     for i in df.values:
         prev_days.append([n for n in i[:-1]])
         if len(prev_days) == WINDOW_LEN:
             seq_data.append([np.array(prev_days), i[-1]])
 
+    # randomize to prevent overfitting
     random.shuffle(seq_data)
 
     # balance the data
@@ -63,17 +68,20 @@ def preprocess_df(df):
         elif target == 1:
             buys.append([seq, target])
 
+    # randomize to prevent overfitting
     random.shuffle(buys)
     random.shuffle(sells)
 
+    # balance out the distribution of buys and sells
     lower = min(len(buys), len(sells))
     buys, sells, seq_data = buys[:lower], sells[:lower], buys + sells
 
-    # all buys or all sells skews data, so shuffle
+    # split data into train, test sets
+    # to prevent buys or sells from skewing data, randomize
     random.shuffle(seq_data)
     x, y = [], []
-    for seq, target in seq_data:
-        x.append(seq)
+    for window, target in seq_data:
+        x.append(window)
         y.append(target)
     return np.array(x), y
 
