@@ -18,9 +18,9 @@ DATA_PROVIDER = 'gemini'
 PRED_PAIR = 'BTCUSD'
 PRED_PERIOD = '1min'
 FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
-WINDOW_LEN = 5 # price data window
+WINDOW_LEN = 60 # price data window
 FORECAST_LEN = 3 # how many data points in future to predict
-EPOCHS = 10
+EPOCHS = 5
 BATCH_SIZE = 64
 NAME = f'{PRED_PAIR}-{WINDOW_LEN}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
 COL_NAMES = ['time', 'date', 'symbol', 'open', 'high', 'low', 'close', 'volume']
@@ -37,16 +37,8 @@ def preprocess_df(df):
     df = df.drop('future', 1)
     for col in df.columns:
         if col != 'target':
-            # model output is next price normalised to 10th previous closing price
-            # LSTM_training_outputs = (training_set['eth_Close'][window_len:].values/training_set['eth_Close'][:-window_len].values)-1
-            # df[col] = df[col].pct_change(fill_method ='bfill') # normalizes data
-            # df.replace([np.inf, -np.inf], np.nan, inplace=True)
-            # df.dropna(inplace=True)
-            values = df[col].values
-            min_val = min(values)
-            max_val = np.nanmax(values)
-            df[col] = (values - min_val) / ( max_val - min_val ) # normalize to [0,1]
-
+            # start simple
+            df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
 
     df.dropna(inplace=True)
 
@@ -87,13 +79,13 @@ def preprocess_df(df):
 main_df = pd.DataFrame()
 years = ['2017', '2018', '2019']
 
-for path, dirlist, filelist in os.walk('data'):
+for path, dirlist, filelist in os.walk('crypto_data'):
     for year, filename in zip(years, fnmatch.filter(filelist, FILE_FILTER)):
-        # if not year == '2019':
-        #     continue
+        if not year == '2019':
+            continue
         print('LOADING FILE FOR YEAR: ', year)
         file = os.path.join(path, filename)
-        df = pd.read_csv(f'{file}', skiprows=184400, names=COL_NAMES)
+        df = pd.read_csv(f'{file}', skiprows=117000, names=COL_NAMES)
         df.rename(columns={'close': f'{PRED_PAIR}_close', 'volume': f'{PRED_PAIR}_volume'}, inplace=True)
         df.set_index('time', inplace=True)
 
@@ -107,6 +99,7 @@ for path, dirlist, filelist in os.walk('data'):
 # add to dataframe
 # import pdb; pdb.set_trace()
 
+# add a future price column shifted in relation to close
 main_df['future'] = main_df[f'{PRED_PAIR}_close'].shift(-FORECAST_LEN)
 main_df['target'] = list(map(classify, main_df[f'{PRED_PAIR}_close'], main_df['future']))
 
@@ -116,6 +109,8 @@ last_5pct = times[-int(0.05*len(times))]
 # split data
 validation_main_df = main_df[(main_df.index >= last_5pct)]
 main_df = main_df[(main_df.index < last_5pct)]
+
+# print(main_df.head())
 
 train_x, train_y = preprocess_df(main_df)
 validation_x, validation_y = preprocess_df(validation_main_df)
@@ -174,4 +169,4 @@ history = model.fit(
     validation_data=(validation_x, validation_y),
     callbacks=[tensorboard, checkpoint])
 
-model.evaluate(validation_x, validation_y)
+print(model.evaluate(validation_x, validation_y))
