@@ -19,7 +19,7 @@ PRED_PAIR = 'BTCUSD'
 PRED_PERIOD = '1min'
 FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
 WINDOW_LEN = 60 # price data window
-FORECAST_LEN = 5 # how many data points in future to predict
+FORECAST_LEN = 3 # how many data points in future to predict
 EPOCHS = 10
 BATCH_SIZE = 64
 NAME = f'{PRED_PAIR}-{WINDOW_LEN}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
@@ -90,9 +90,9 @@ for path, dirlist, filelist in os.walk('data'):
     for year, filename in zip(years, fnmatch.filter(filelist, FILE_FILTER)):
         if not year == '2019':
             continue
-        print('LOADINNG FILE FOR YEAR: ', year)
+        print('LOADING FILE FOR YEAR: ', year)
         file = os.path.join(path,filename)
-        df = pd.read_csv(f'{file}', skiprows=90000, names=COL_NAMES)
+        df = pd.read_csv(f'{file}', skiprows=184000, names=COL_NAMES)
         df.rename(columns={'close': f'{PRED_PAIR}_close', 'volume': f'{PRED_PAIR}_volume'}, inplace=True)
         df.set_index('time', inplace=True)
 
@@ -123,7 +123,7 @@ validation_x, validation_y = preprocess_df(validation_main_df)
 # shows balance
 print(f'train data: {len(train_x)} validation: {len(validation_x)}')
 print(f'Dont buys: {train_y.count(0)} buys: {train_y.count(1)}')
-print(f'VALIDATION Dont buys: {validation_y.count(0)} buys: {validation_y.count(1)}')
+print(f'VALIDATION Dont buys: {validation_y.count(0)} VALIDATION buys: {validation_y.count(1)}')
 
 model = Sequential()
 model.add(LSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
