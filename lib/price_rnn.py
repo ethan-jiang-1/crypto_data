@@ -14,6 +14,7 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormal
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import MinMaxScaler
 
+DATA_DIR = 'data'
 DATA_PROVIDER = 'gemini'
 PRED_PAIR = 'BTCUSD'
 PRED_PERIOD = '1min'
@@ -22,6 +23,7 @@ WINDOW_LEN = 60 # price data window
 FORECAST_LEN = 3 # how many data points in future to predict
 EPOCHS = 5
 BATCH_SIZE = 64
+SKIP_ROWS = 117400 # use for 'development' mode
 NAME = f'{PRED_PAIR}-{WINDOW_LEN}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
 COL_NAMES = ['time', 'date', 'symbol', 'open', 'high', 'low', 'close', 'volume']
 
@@ -35,11 +37,12 @@ def classify(current, future):
 # normalize, scale, balance
 def preprocess_df(df):
     df = df.drop('future', 1)
-
-    # normalize BTCUSD_close and BTCUSD_volume
     for col in df.columns:
         if col != 'target':
+            # start simple
             df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
+
+    df.dropna(inplace=True)
 
     seq_data = []
     # sliding window cache - old values drop off
@@ -78,13 +81,13 @@ def preprocess_df(df):
 main_df = pd.DataFrame()
 years = ['2017', '2018', '2019']
 
-for path, dirlist, filelist in os.walk('crypto_data'):
+for path, dirlist, filelist in os.walk(DATA_DIR):
     for year, filename in zip(years, fnmatch.filter(filelist, FILE_FILTER)):
         if not year == '2019':
             continue
         print('LOADING FILE FOR YEAR: ', year)
         file = os.path.join(path, filename)
-        df = pd.read_csv(f'{file}', skiprows=117000, names=COL_NAMES)
+        df = pd.read_csv(f'{file}', skiprows=SKIP_ROWS, names=COL_NAMES)
         df.rename(columns={'close': f'{PRED_PAIR}_close', 'volume': f'{PRED_PAIR}_volume'}, inplace=True)
         df.set_index('time', inplace=True)
 
@@ -121,15 +124,15 @@ print(f'Dont buys: {train_y.count(0)} buys: {train_y.count(1)}')
 print(f'VALIDATION Dont buys: {validation_y.count(0)} VALIDATION buys: {validation_y.count(1)}')
 
 model = Sequential()
-model.add(LSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
+model.add(CuDNNLSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
-model.add(LSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
+model.add(CuDNNLSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
-model.add(LSTM(128, input_shape=(train_x.shape[1:])))
+model.add(CuDNNLSTM(128, input_shape=(train_x.shape[1:])))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
