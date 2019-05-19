@@ -18,7 +18,7 @@ DATA_PROVIDER = 'gemini'
 PRED_PAIR = 'BTCUSD'
 PRED_PERIOD = '1min'
 FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
-WINDOW_LEN = 60 # price data window
+WINDOW_LEN = 5 # price data window
 FORECAST_LEN = 3 # how many data points in future to predict
 EPOCHS = 10
 BATCH_SIZE = 64
@@ -39,9 +39,9 @@ def preprocess_df(df):
         if col != 'target':
             # model output is next price normalised to 10th previous closing price
             # LSTM_training_outputs = (training_set['eth_Close'][window_len:].values/training_set['eth_Close'][:-window_len].values)-1
-            df[col] = df[col].pct_change(fill_method ='bfill') # normalizes data
-            df.replace([np.inf, -np.inf], np.nan, inplace=True)
-            df.dropna(inplace=True)
+            # df[col] = df[col].pct_change(fill_method ='bfill') # normalizes data
+            # df.replace([np.inf, -np.inf], np.nan, inplace=True)
+            # df.dropna(inplace=True)
             values = df[col].values
             min_val = min(values)
             max_val = np.nanmax(values)
@@ -85,14 +85,15 @@ def preprocess_df(df):
 
 
 main_df = pd.DataFrame()
-years = ['2015', '2016', '2017', '2018', '2019']
+years = ['2017', '2018', '2019']
+
 for path, dirlist, filelist in os.walk('data'):
     for year, filename in zip(years, fnmatch.filter(filelist, FILE_FILTER)):
-        if not year == '2019':
-            continue
+        # if not year == '2019':
+        #     continue
         print('LOADING FILE FOR YEAR: ', year)
-        file = os.path.join(path,filename)
-        df = pd.read_csv(f'{file}', skiprows=184000, names=COL_NAMES)
+        file = os.path.join(path, filename)
+        df = pd.read_csv(f'{file}', skiprows=184400, names=COL_NAMES)
         df.rename(columns={'close': f'{PRED_PAIR}_close', 'volume': f'{PRED_PAIR}_volume'}, inplace=True)
         df.set_index('time', inplace=True)
 
@@ -138,7 +139,7 @@ model.add(LSTM(128, input_shape=(train_x.shape[1:])))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
-model.add(Dense(128, activation='relu'))
+model.add(Dense(128, activation='tanh'))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
@@ -156,6 +157,9 @@ model.compile(loss='sparse_categorical_crossentropy',
 tensorboard = TensorBoard(log_dir=f'logs/{NAME}')
 
 # unique filename to include epoch and validation accuracy for that epoch
+if not os.path.exists('models'):
+    os.makedirs('models')
+
 filepath = "RNN_Final-{epoch:02d}-{val_acc:.3f}"
 checkpoint = ModelCheckpoint("models/{}.model".format(filepath,
                                                       monitor='val_acc',
