@@ -14,19 +14,19 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormal
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import MinMaxScaler
 
-# HYPERPARAMETERS
 PRED_PAIR = 'BTCUSD'
+
+# HYPERPARAMETERS
 PRED_PERIOD = '1min'
-WINDOW_LEN = 60 # price data window
+WINDOW_LEN = 15 # price data window
 FORECAST_LEN = 3 # how many data points in future to predict
-EPOCHS = 5
+EPOCHS = 2
 BATCH_SIZE = 64
-SKIP_ROWS = 117400 # use for 'development' mode
+SKIP_ROWS = 2 # 117400 # use for 'development' mode
 
 # FORMATTING, etc.
 DATA_DIR = 'data'
 DATA_PROVIDER = 'gemini'
-FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
 NAME = f'{PRED_PAIR}-{WINDOW_LEN}-SEQ-{FORECAST_LEN}-PRED-{int(time.time())}'
 COL_NAMES = ['time', 'date', 'symbol', 'open', 'high', 'low', 'close', 'volume']
 
@@ -42,11 +42,13 @@ def preprocess_df(df):
     df = df.drop('future', 1)
 
     # normalize BTCUSD_close, BTCUSD_volume
+    print('NORMALIZING THIS DATA:\n', df.sample(10))
     for col in df.columns:
         if col != 'target':
             # start simple
             df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
 
+    print('ARRANGING THIS NORMALIZED DATA:\n', df.sample(10))
     # arrange data into seq -> target pairs for training
     # to see how window or 'lookback' period effects prediction accuracy
     seq_data = []
@@ -59,7 +61,7 @@ def preprocess_df(df):
 
     # randomize to prevent overfitting
     random.shuffle(seq_data)
-
+    print('BALANCING DATA:\n\n', seq_data[0][0][0:2])
     # balance the data
     buys, sells = [], []
     for seq, target in seq_data:
@@ -76,6 +78,7 @@ def preprocess_df(df):
     lower = min(len(buys), len(sells))
     buys, sells, seq_data = buys[:lower], sells[:lower], buys + sells
 
+    print('SPLITTING DATA:\n\n', seq_data[0][0][0:2])
     # split data into train, test sets
     # to prevent buys or sells from skewing data, randomize
     random.shuffle(seq_data)
@@ -83,16 +86,20 @@ def preprocess_df(df):
     for window, target in seq_data:
         x.append(window)
         y.append(target)
+
+    print('TRAINING DATA SAMPLE:\n', x[0][0][0:2])
+    print('TEST DATA SAMPLE:\n', y[0:2])
     return np.array(x), y
 
 
 main_df = pd.DataFrame()
-years = ['2017', '2018', '2019']
+years = ['2018', '2019']
+FILE_FILTER = f'{DATA_PROVIDER}_{PRED_PAIR}_*{PRED_PERIOD}.csv'
 
 for path, dirlist, filelist in os.walk(DATA_DIR):
     for year, filename in zip(years, fnmatch.filter(filelist, FILE_FILTER)):
-        if not year == '2019':
-            continue
+        # if not year == '2019':
+        #     continue
         print('LOADING FILE FOR YEAR: ', year)
         file = os.path.join(path, filename)
         df = pd.read_csv(f'{file}', skiprows=SKIP_ROWS, names=COL_NAMES)
@@ -114,7 +121,7 @@ main_df['future'] = main_df[f'{PRED_PAIR}_close'].shift(-FORECAST_LEN)
 main_df['target'] = list(map(classify, main_df[f'{PRED_PAIR}_close'], main_df['future']))
 
 times = sorted(main_df.index.values)
-last_5pct = times[-int(0.05*len(times))]
+last_5pct = times[-int(0.15*len(times))]
 
 # split data
 validation_main_df = main_df[(main_df.index >= last_5pct)]
@@ -132,15 +139,15 @@ print(f'Dont buys: {train_y.count(0)} buys: {train_y.count(1)}')
 print(f'VALIDATION Dont buys: {validation_y.count(0)} VALIDATION buys: {validation_y.count(1)}')
 
 model = Sequential()
-model.add(CuDNNLSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
+model.add(LSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
-model.add(CuDNNLSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
+model.add(LSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
-model.add(CuDNNLSTM(128, input_shape=(train_x.shape[1:])))
+model.add(LSTM(128, input_shape=(train_x.shape[1:])))
 model.add(Dropout(0.2))
 model.add(BatchNormalization())
 
