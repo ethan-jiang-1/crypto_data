@@ -18,11 +18,11 @@ PAIR = 'BTCUSD'
 
 # HYPERPARAMETERS
 PRED_PERIOD = '1min'
-WINDOW_LEN = 15 # price data window
-FORECAST_LEN = 15 # how many WINDOW_LEN's distance in future to predict
-EPOCHS = 5
+WINDOW_LEN = 60 # price data window
+FORECAST_LEN = 3 # how many PRED_PERIOD's in future to predict
+EPOCHS = 10
 BATCH_SIZE = 64
-SKIP_ROWS = 171400 # use for 'development' mode
+SKIP_ROWS = 2 # use 179400 for fast 'dev' mode
 
 # FORMATTING, etc.
 DATA_DIR = 'data'
@@ -45,13 +45,12 @@ def preprocess_df(df):
     print('NORMALIZING DATA:\n', df.sample(10))
     for col in df.columns:
         if col != 'target':
-            # start simple
-            # df[col] = df[col].pct_change()
+            # start simple, scale to interval [0,1]
             df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
 
     print('ARRANGING NORMALIZED DATA:\n', df.sample(10))
-    # arrange data into seq -> target pairs for training, where seq
-    # to see how window or 'lookback' period effects prediction accuracy
+    # arrange data into seq -> target pairs for training to see how
+    # WINDOW_LEN 'lookback' period effects prediction accuracy
     seq_data = []
     # sliding window cache - old values drop off
     prev_days = deque(maxlen=WINDOW_LEN)
@@ -71,7 +70,7 @@ def preprocess_df(df):
         elif target == 1:
             buys.append([seq, target])
 
-    # randomize to prevent overfitting
+    # randomize to prevent skew
     random.shuffle(buys)
     random.shuffle(sells)
 
@@ -103,7 +102,7 @@ def load_data():
     main_df = pd.DataFrame()
     for path, dirlist, filelist in os.walk(DATA_DIR):
         for year, filename in zip(years, fnmatch.filter(filelist, FILE_FILTER)):
-            if not year == '2019':
+            if not year == '2018':
                 continue
             print('LOADING FILE FOR YEAR: ', year)
             file = os.path.join(path, filename)
@@ -132,20 +131,17 @@ main_df['target'] = list(map(classify, main_df[f'{PAIR}_close'], main_df['future
 times = sorted(main_df.index.values)
 last_5pct = times[-int(0.05*len(times))]
 
-# split data
+# SPLIT DATA INTO TRAIN, VALIDATE
 validation_main_df = main_df[(main_df.index >= last_5pct)]
 main_df = main_df[(main_df.index < last_5pct)]
 
-# print(main_df.head())
-
 train_x, train_y = preprocess_df(main_df)
 validation_x, validation_y = preprocess_df(validation_main_df)
-# import pdb; pdb.set_trace()
 
 # shows balance
 print(f'train data: {len(train_x)}, validation data: {len(validation_x)}')
-print(f'Dont buys: {train_y.count(0)} buys: {train_y.count(1)}')
-print(f'VALIDATION Dont buys: {validation_y.count(0)} VALIDATION buys: {validation_y.count(1)}')
+print(f'TRAIN do not buys: {train_y.count(0)} TRAIN buys: {train_y.count(1)}')
+print(f'VALIDATION Do not buys: {validation_y.count(0)} VALIDATION buys: {validation_y.count(1)}')
 
 model = Sequential()
 model.add(LSTM(128, input_shape=(train_x.shape[1:]), return_sequences=True))
