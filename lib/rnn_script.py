@@ -93,11 +93,9 @@ def preprocess_df(df):
     print('TEST DATA SAMPLE:\n', y[0:2])
     return np.array(x), y
 
-
-# don't change these, will break load loop
+# EXTRACT DATA
 years = ['2015', '2016', '2017', '2018', '2019']
 FILE_FILTER = f'{DATA_PROVIDER}_{PAIR}_*{PRED_PERIOD}.csv'
-
 def load_data():
     main_df = pd.DataFrame()
     for path, dirlist, filelist in os.walk(DATA_DIR):

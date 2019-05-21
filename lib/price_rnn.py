@@ -28,7 +28,7 @@ class PriceRNN:
                        batch_size=64,
                        data_provider='gemini',
                        data_dir='data',
-                       skip_rows=270000):
+                       skip_rows=2):
         self.data_provider = data_provider
         self.data_dir = data_dir
         self.pair = pair
@@ -95,7 +95,7 @@ class PriceRNN:
         seq_data = buys + sells
         return seq_data
 
-    def split_data(self, seq_data):
+    def split_sequences(self, seq_data):
         print('SPLITTING DATA:\n', seq_data[0][0][0:2])
         # split data into train, test sets
         # to prevent buys or sells from skewing data, randomize
@@ -115,10 +115,10 @@ class PriceRNN:
         df = self.normalize_df(df)
         seq_data = self.arrange_df(df)
         seq_data = self.balance(seq_data)
-        x, y = self.split_data(seq_data)
+        x, y = self.split_sequences(seq_data)
         return x, y
 
-    def load_data(self):
+    def extract_data(self):
         main_df = pd.DataFrame()
         for path, dirlist, filelist in os.walk(self.data_dir):
             for year, filename in zip(self.years, fnmatch.filter(filelist, self.file_filter)):
@@ -140,47 +140,55 @@ class PriceRNN:
                     main_df = main_df.append(df)
         return main_df
 
-    def run(self):
-        main_df = self.load_data()
+    def transform_df(self, df):
         # add a future price column shifted in relation to close
-        main_df['future'] = main_df[f'{self.pair}_close'].shift(-self.forecast_len)
+        df['future'] = df[f'{self.pair}_close'].shift(-self.forecast_len)
         # classify and add target ground truth column
-        main_df['target'] = list(map(self.classify, main_df[f'{self.pair}_close'], main_df['future']))
+        df['target'] = list(map(self.classify, df[f'{self.pair}_close'], df['future']))
+        return df
 
-        times = sorted(main_df.index.values)
+    def split_data(self, df):
+        times = sorted(df.index.values)
         last_5pct = times[-int(0.05*len(times))]
 
         # SPLIT DATA INTO TRAIN, VALIDATE
-        validation_main_df = main_df[(main_df.index >= last_5pct)]
-        main_df = main_df[(main_df.index < last_5pct)]
+        test_df = df[(df.index >= last_5pct)]
+        df = df[(df.index < last_5pct)]
 
-        train_x, train_y = self.preprocess_df(main_df)
-        validation_x, validation_y = self.preprocess_df(validation_main_df)
+        x_train, y_train = self.preprocess_df(df)
+        x_test, y_test = self.preprocess_df(test_df)
+        return x_train, y_train, x_test, y_test
+
+    def run(self):
+        main_df = self.extract_data()
+        main_df = self.transform_df(main_df)
+        x_train, y_train, x_test, y_test = self.split_data(main_df)
 
         # shows balance
-        print(f'train data: {len(train_x)}, validation data: {len(validation_x)}')
-        print(f'TRAIN do not buys: {train_y.count(0)} TRAIN buys: {train_y.count(1)}')
-        print(f'VALIDATION Do not buys: {validation_y.count(0)} VALIDATION buys: {validation_y.count(1)}')
+        print(f'train data: {len(x_train)}, validation data: {len(x_test)}')
+        print(f'TRAIN do not buys: {y_train.count(0)} TRAIN buys: {y_train.count(1)}')
+        print(f'VALIDATION Do not buys: {y_test.count(0)} VALIDATION buys: {y_test.count(1)}')
 
+        # how to compute number of neurons per layer?
         # t - number of time steps
         # n - length of input vector in each time step
         # m - length of output vector (number of classes)
         # i - number of training examples
         # 4(𝑛𝑚+𝑛2)
         model = Sequential()
-        model.add(LSTM(256, input_shape=(train_x.shape[1:]), return_sequences=True))
+        model.add(LSTM(256, input_shape=(x_train.shape[1:]), return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
-        model.add(LSTM(256, input_shape=(train_x.shape[1:]), return_sequences=True))
+        model.add(LSTM(256, input_shape=(x_train.shape[1:]), return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
-        model.add(LSTM(256, input_shape=(train_x.shape[1:]), return_sequences=True))
+        model.add(LSTM(256, input_shape=(x_train.shape[1:]), return_sequences=True))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
-        model.add(LSTM(256, input_shape=(train_x.shape[1:])))
+        model.add(LSTM(256, input_shape=(x_train.shape[1:])))
         model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
@@ -211,13 +219,13 @@ class PriceRNN:
                                                               mode='max')) #saves only the best ones
 
         history = model.fit(
-            train_x, train_y,
+            x_train, y_train,
             batch_size=self.batch_size,
             epochs=self.epochs,
-            validation_data=(validation_x, validation_y),
+            validation_data=(x_test, y_test),
             callbacks=[tensorboard, checkpoint])
 
-        print(model.evaluate(validation_x, validation_y))
+        print(model.evaluate(x_test, y_test))
 
 PriceRNN(pair='BTCUSD',
         period='1min',
