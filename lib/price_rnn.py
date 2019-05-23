@@ -27,7 +27,8 @@ class PriceRNN:
         forecast_len=3,
         years=["2015", "2016", "2017", "2018", "2019"],
         epochs=1,
-        testpct=0.20,
+        dropout=0.3,
+        testpct=0.25,
         loss_func="sparse_categorical_crossentropy",
         batch_size=64,
         hidden_node_sizes=[128] * 4,
@@ -44,6 +45,7 @@ class PriceRNN:
         self.forecast_len = forecast_len  # how many data points in future to predict
         self.years = years
         self.epochs = epochs
+        self.dropout = dropout
         self.testpct = testpct
         self.loss_func = loss_func
         self.batch_size = batch_size
@@ -63,8 +65,7 @@ class PriceRNN:
         self.file_filter = f"{data_provider}_{pair}_*{period}.csv"
 
     def classify(self, current, future):
-        span = float(future) - float(current)
-        if 0.0 < span <= float("inf"):
+        if float(future) > float(current):
             return 1
         else:
             return 0
@@ -165,6 +166,9 @@ class PriceRNN:
                     main_df = df
                 else:
                     main_df = main_df.append(df)
+        # if there are gaps in data, use previously known values
+        main_df.fillna(method="ffill", inplace=True)
+        main_df.dropna(inplace=True)
         return main_df
 
     def transform_df(self, df):
@@ -207,35 +211,19 @@ class PriceRNN:
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.2))
+        model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(
-            CuDNNLSTM(
-                self.hidden_node_sizes[1],
-                input_shape=(x_train.shape[1:]),
-                return_sequences=True,
-            )
-        )
-        model.add(Dropout(0.2))
+        model.add(CuDNNLSTM(self.hidden_node_sizes[1], return_sequences=True))
+        model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(
-            CuDNNLSTM(
-                self.hidden_node_sizes[2],
-                input_shape=(x_train.shape[1:]),
-                return_sequences=True,
-            )
-        )
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-
-        model.add(CuDNNLSTM(self.hidden_node_sizes[3]))
-        model.add(Dropout(0.2))
+        model.add(CuDNNLSTM(self.hidden_node_sizes[2]))
+        model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
         model.add(Dense(32, activation="relu"))
-        model.add(Dropout(0.2))
+        model.add(Dropout(self.dropout))
 
         model.add(Dense(2, activation="softmax"))
 
@@ -270,31 +258,23 @@ class PriceRNN:
         print(model.evaluate(x_test, y_test))
 
 
-# TODO: stochastic grid search hyperparam optimization
-lens = [
-    (60, 3),
-    (120, 3),
-    (120, 5),
-    (120, 10),
-    (180, 5),
-    (180, 10),
-    (240, 5),
-    (240, 10),
-    (360, 5),
-    (360, 10),
-]
-for wlen, flen in lens:
+# TODO: stochastic random search and/or bayesian hyperparam optimization
+hypers = [(60, 3, 0.4), (120, 3, 0.4)]
+for wlen, flen, dropout in hypers:
     wlen = int(wlen)
     flen = int(flen)
+    dropout = float(dropout)
     print("RUNNING MODEL: ")
     print("\twindow length: ", wlen)
     print("\tforecast length: ", flen)
+    print("\tdropout ratio: ", dropout)
     PriceRNN(
         pair="BTCUSD",
         period="1min",
         window_len=wlen,
         forecast_len=flen,
-        years=["2016", "2019"],
+        dropout=dropout,
+        years=["2015", "2016", "2017", "2018", "2019"],
         epochs=10,
         data_dir="data",
         skip_rows=2,
