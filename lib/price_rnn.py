@@ -16,7 +16,6 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormalization
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import MinMaxScaler
-from tenserflow.keras import regularizers
 
 
 class PriceRNN:
@@ -28,7 +27,8 @@ class PriceRNN:
         forecast_len=3,
         years=["2015", "2016", "2017", "2018", "2019"],
         epochs=1,
-        testpct=0.40,
+        testpct=0.20,
+        loss_func="sparse_categorical_crossentropy",
         batch_size=64,
         hidden_node_sizes=[128] * 4,
         data_provider="gemini",
@@ -45,6 +45,7 @@ class PriceRNN:
         self.years = years
         self.epochs = epochs
         self.testpct = testpct
+        self.loss_func = loss_func
         self.batch_size = batch_size
         self.hidden_node_sizes = hidden_node_sizes
         self.name = f"{pair}-{window_len}-window-{forecast_len}-pred-{int(time.time())}"
@@ -198,6 +199,7 @@ class PriceRNN:
         )
 
         model = Sequential()
+        print("train shape", x_train.shape[1:])
         model.add(
             CuDNNLSTM(
                 self.hidden_node_sizes[0],
@@ -205,7 +207,7 @@ class PriceRNN:
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.4))
+        model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
         model.add(
@@ -215,7 +217,7 @@ class PriceRNN:
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.4))
+        model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
         model.add(
@@ -225,18 +227,21 @@ class PriceRNN:
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.4))
+        model.add(Dropout(0.2))
+        model.add(BatchNormalization())
+
+        model.add(CuDNNLSTM(self.hidden_node_sizes[3]))
+        model.add(Dropout(0.2))
         model.add(BatchNormalization())
 
         model.add(Dense(32, activation="relu"))
+        model.add(Dropout(0.2))
 
         model.add(Dense(2, activation="softmax"))
 
         opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-6)
 
-        model.compile(
-            loss="sparse_categorical_crossentropy", optimizer=opt, metrics=["accuracy"]
-        )
+        model.compile(loss=self.loss_func, optimizer=opt, metrics=["accuracy"])
 
         if not os.path.exists("logs"):
             os.makedirs("logs")
@@ -266,7 +271,18 @@ class PriceRNN:
 
 
 # TODO: stochastic grid search hyperparam optimization
-lens = [(60, 15), (120, 15), (180, 15), (240, 15), (300, 15), (360, 15)]
+lens = [
+    (60, 3),
+    (120, 3),
+    (120, 5),
+    (120, 10),
+    (180, 5),
+    (180, 10),
+    (240, 5),
+    (240, 10),
+    (360, 5),
+    (360, 10),
+]
 for wlen, flen in lens:
     wlen = int(wlen)
     flen = int(flen)
@@ -278,8 +294,8 @@ for wlen, flen in lens:
         period="1min",
         window_len=wlen,
         forecast_len=flen,
-        years=["2019"],
+        years=["2016", "2019"],
         epochs=10,
-        data_dir="/crypto_data",
+        data_dir="data",
         skip_rows=2,
     ).run()
