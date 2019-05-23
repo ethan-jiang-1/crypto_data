@@ -16,6 +16,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormalization
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.preprocessing import MinMaxScaler
+from tenserflow.keras import regularizers
 
 
 class PriceRNN:
@@ -27,6 +28,7 @@ class PriceRNN:
         forecast_len=3,
         years=["2015", "2016", "2017", "2018", "2019"],
         epochs=1,
+        testpct=0.40,
         batch_size=64,
         hidden_node_sizes=[128] * 4,
         data_provider="gemini",
@@ -42,6 +44,7 @@ class PriceRNN:
         self.forecast_len = forecast_len  # how many data points in future to predict
         self.years = years
         self.epochs = epochs
+        self.testpct = testpct
         self.batch_size = batch_size
         self.hidden_node_sizes = hidden_node_sizes
         self.name = f"{pair}-{window_len}-window-{forecast_len}-pred-{int(time.time())}"
@@ -172,7 +175,7 @@ class PriceRNN:
 
     def preprocess_and_split(self, df):
         times = sorted(df.index.values)
-        testpct = times[-int(0.20 * len(times))]
+        testpct = times[-int(self.testpct * len(times))]
 
         # SPLIT DATA INTO (1-testpct)% TRAIN, (testpct)% VALIDATE
         test_df = df[(df.index >= testpct)]
@@ -196,41 +199,36 @@ class PriceRNN:
 
         model = Sequential()
         model.add(
-            LSTM(
+            CuDNNLSTM(
                 self.hidden_node_sizes[0],
                 input_shape=(x_train.shape[1:]),
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.2))
+        model.add(Dropout(0.4))
         model.add(BatchNormalization())
 
         model.add(
-            LSTM(
+            CuDNNLSTM(
                 self.hidden_node_sizes[1],
                 input_shape=(x_train.shape[1:]),
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.2))
+        model.add(Dropout(0.4))
         model.add(BatchNormalization())
 
         model.add(
-            LSTM(
+            CuDNNLSTM(
                 self.hidden_node_sizes[2],
                 input_shape=(x_train.shape[1:]),
                 return_sequences=True,
             )
         )
-        model.add(Dropout(0.2))
-        model.add(BatchNormalization())
-
-        model.add(LSTM(self.hidden_node_sizes[3], input_shape=(x_train.shape[1:])))
-        model.add(Dropout(0.2))
+        model.add(Dropout(0.4))
         model.add(BatchNormalization())
 
         model.add(Dense(32, activation="relu"))
-        model.add(Dropout(0.2))
 
         model.add(Dense(2, activation="softmax"))
 
@@ -268,21 +266,20 @@ class PriceRNN:
 
 
 # TODO: stochastic grid search hyperparam optimization
-# lens = [(30, 5), (30, 10), (30, 15), (45, 5), (45, 10), (45, 15)]
 lens = [(60, 15), (120, 15), (180, 15), (240, 15), (300, 15), (360, 15)]
 for wlen, flen in lens:
     wlen = int(wlen)
     flen = int(flen)
     print("RUNNING MODEL: ")
-    print("window length: ", wlen)
-    print("forecast length: ", flen)
+    print("\twindow length: ", wlen)
+    print("\tforecast length: ", flen)
     PriceRNN(
         pair="BTCUSD",
         period="1min",
         window_len=wlen,
         forecast_len=flen,
-        years=["2017", "2018", "2019"],
+        years=["2019"],
         epochs=10,
-        data_dir="data",
-        skip_rows=450_000,
+        data_dir="/crypto_data",
+        skip_rows=2,
     ).run()
