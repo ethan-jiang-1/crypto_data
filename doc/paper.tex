@@ -42,7 +42,7 @@ Our team experimented with several LSTM models and are still deciding a model st
 \paragraph{}
 The results are fairly similar, however a more focused strategy for deep learning in time series needs to be developed (see results below).
 
-\includegraphics[width=9cm]{download}
+%%\includegraphics[width=9cm]{download}
 
 \section{Deep Recurrent Neural Nets for Time Series}
 \paragraph{We use RNN's to predict bitcoin prices.}
@@ -67,7 +67,20 @@ The process to regularize is as follows:
 \item Inverse transform the new coefficients to get the denoised data.
 \end{enumerate}
 
-\item Here is the integral form of the wavelet transformation used by the \textit{PyWavelets} library:
+\paragraph{}@TechReport{•,
+author = {•},
+title = {•},
+institution = {•},
+year = {•},
+OPTkey = {•},
+OPTtype = {•},
+OPTnumber = {•},
+OPTaddress = {•},
+OPTmonth = {•},
+OPTnote = {•},
+OPTannote = {•}
+}
+Here is the integral form of the wavelet transformation used by the \textit{PyWavelets} library:
 \[\left[W_\psi f\right](a, b) = \frac{1}{\sqrt{|a|}} \int_{-\infty}^\infty \overline{\psi\left(\frac{x-b}{a}\right)}f(x)dx\]
 
 \subsection{Feature Engineering}
@@ -80,9 +93,9 @@ We explore a variety of data preprocessing and augmentation techniques gathered 
 
 \item Found some success by pre-processing the data using filters, namely the Kalman and Wavelet filters \cite{2_website}.
 
-\item \cite{3_website} gives multiple technical indicators for data augmentation including momentum, trend, volatility, and volume. These can be calculated with the python ‘TA’ library . These features can be used to further augment the LSTM input.
+\item 3 \cite{3_website} gives multiple technical indicators for data augmentation including momentum, trend, volatility, and volume. These can be calculated with the python ‘TA’ library . These features can be used to further augment the LSTM input.
 
-\item \cite{4_website} proposes the technique of segmenting the time series into a number of consecutive 'windows'  , and a label which is the next window of data. Preprocessing the data into this format and saving to disk can save a lot of computation time each run. There are also many hyperparameters here, such as the size of the window, how many windows to include in a training example, if and how much he windows overlap, etc.
+\item 4 \cite{4_website} proposes the technique of segmenting the time series into a number of consecutive 'windows'  , and a label which is the next window of data. Preprocessing the data into this format and saving to disk can save a lot of computation time each run. There are also many hyperparameters here, such as the size of the window, how many windows to include in a training example, if and how much he windows overlap, etc.
 \end{enumerate}
 
 \paragraph{}
@@ -91,6 +104,9 @@ We plan to use the root mean squared error (RMSE) between predicted and true fin
 \section{Code}
 Our code is at \url{https://github.com/ericsteen/crypto_data}
 The code of particular interest is in \verb btc_lstm_final_v2.ipynb  and \verb data_experiments.ipynb. Data gathering scripts are located in /lib as well.
+
+\bibliography{references}
+
 % \subsection{Hyperparameters}
 % \begin{enumerate}
 %     \item Layers
@@ -111,5 +127,5 @@ The code of particular interest is in \verb btc_lstm_final_v2.ipynb  and \verb d
 % ``Time Series, in conjunction with deep neural nets is a win, win proposition for quantitative analysis of cryptoassets.'' \citep{adams1995hitchhiker}
 
 \bibliographystyle{plain}
-\bibliography{references}
+
 \end{document}
