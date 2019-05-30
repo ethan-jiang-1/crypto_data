@@ -15,7 +15,9 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormalization
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
-from sklearn.preprocessing import MinMaxScaler
+from sklearn import preprocessing
+from tensorflow.keras import regularizers
+from matplotlib import pyplot
 
 
 class PriceRNN:
@@ -32,6 +34,9 @@ class PriceRNN:
         loss_func="sparse_categorical_crossentropy",
         batch_size=64,
         hidden_node_sizes=[128] * 4,
+        learning_rate=0.001,
+        decay=1e-6,
+        scaler=preprocessing.MinMaxScaler(),
         data_provider="gemini",
         data_dir="data",
         skip_rows=2,
@@ -50,6 +55,9 @@ class PriceRNN:
         self.loss_func = loss_func
         self.batch_size = batch_size
         self.hidden_node_sizes = hidden_node_sizes
+        self.learning_rate = learning_rate
+        self.decay = decay
+        self.scaler = scaler
         self.name = f"{pair}-{window_len}-window-{forecast_len}-pred-{int(time.time())}"
         self.skip_rows = skip_rows
         self.col_names = [
@@ -70,19 +78,28 @@ class PriceRNN:
         else:
             return 0
 
-    def normalize_df(self, df):
+    def normalize_df(self, df, train_data=True):
         print("NORMALIZING DATA:\n", df.sample(10))
         # normalize df.columns ({PAIR}_close, {PAIR}_volume)
         for col in df.columns:
             if col != "target":
                 # start simple, scale to interval [0,1]
-                df[col] = (df[col] - df[col].mean()) / (df[col].max() - df[col].min())
+                # df[col] = self.scaler.fit_transform(df[col].values.reshape(-1, 1))
+                # df[col] = df[col].pct_change()
+                # df.dropna(inplace=True)
+                # df[col] = df[col].fillna(df[col].mean(), inplace=True)
+                if train_data:
+                    df[col] = self.scaler.fit_transform(df[col].values.reshape(-1, 1))
+                else:
+                    df[col] = self.scaler.transform(df[col].values.reshape(-1, 1))
+
+        df.dropna(inplace=True)
         return df
 
-    def arrange_df(self, df):
+    def convert_to_seq(self, df):
         print("ARRANGING NORMALIZED DATA:\n", df.sample(10))
-        # arrange data into seq -> target pairs for training to see how
-        # WINDOW_LEN 'lookback' period effects prediction accuracy
+        # convert data into seq -> target pairs for training to see how
+        # self.window_len 'lookback' period effects prediction accuracy
         seq_data = []
         # sliding window cache - old values drop off
         prev_days = deque(maxlen=self.window_len)
@@ -128,11 +145,11 @@ class PriceRNN:
         return np.array(x), y
 
     # normalize, arrange, balance
-    def preprocess_df(self, df):
+    def preprocess_df(self, df, train_data=True):
         df = df.drop("future", 1)
-        df = self.normalize_df(df)
-        seq_data = self.arrange_df(df)
-        seq_data = self.balance(seq_data)
+        df = self.normalize_df(df, train_data=train_data)
+        seq_data = self.convert_to_seq(df)
+        # seq_data = self.balance(seq_data)
         x, y = self.split_sequences(seq_data)
         return x, y
 
@@ -178,7 +195,8 @@ class PriceRNN:
         df["target"] = list(map(self.classify, df[f"{self.pair}_close"], df["future"]))
         return df
 
-    def preprocess_and_split(self, df):
+    def split_and_preprocess(self, df):
+        random.seed(230)  # introduce determinism
         times = sorted(df.index.values)
         testpct = times[-int(self.testpct * len(times))]
 
@@ -187,13 +205,13 @@ class PriceRNN:
         df = df[(df.index < testpct)]
 
         x_train, y_train = self.preprocess_df(df)
-        x_test, y_test = self.preprocess_df(test_df)
+        x_test, y_test = self.preprocess_df(test_df, train_data=False)
         return x_train, y_train, x_test, y_test
 
     def run(self):
         main_df = self.extract_data()
         main_df = self.transform_df(main_df)
-        x_train, y_train, x_test, y_test = self.preprocess_and_split(main_df)
+        x_train, y_train, x_test, y_test = self.split_and_preprocess(main_df)
 
         # shows balance
         print(f"train data: {len(x_train)}, validation data: {len(x_test)}")
@@ -209,25 +227,42 @@ class PriceRNN:
                 self.hidden_node_sizes[0],
                 input_shape=(x_train.shape[1:]),
                 return_sequences=True,
+                kernel_regularizer=regularizers.l2(0.001),
             )
         )
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(CuDNNLSTM(self.hidden_node_sizes[1], return_sequences=True))
+        model.add(
+            CuDNNLSTM(
+                self.hidden_node_sizes[1],
+                return_sequences=True,
+                kernel_regularizer=regularizers.l2(0.001),
+            )
+        )
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(CuDNNLSTM(self.hidden_node_sizes[2]))
+        model.add(
+            CuDNNLSTM(
+                self.hidden_node_sizes[2], kernel_regularizer=regularizers.l2(0.001)
+            )
+        )
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
+
+        # model.add(
+        #     Dense(self.hidden_node_sizes[3], kernel_regularizer=regularizers.l2(0.001))
+        # )
+        # model.add(Dropout(self.dropout))
+        # model.add(BatchNormalization())
 
         model.add(Dense(32, activation="relu"))
         model.add(Dropout(self.dropout))
 
         model.add(Dense(2, activation="softmax"))
 
-        opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-6)
+        opt = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.decay)
 
         model.compile(loss=self.loss_func, optimizer=opt, metrics=["accuracy"])
 
@@ -255,11 +290,28 @@ class PriceRNN:
             callbacks=[tensorboard, checkpoint],
         )
 
+        print(history.history["loss"])
+        print(history.history["acc"])
+        print(history.history["val_loss"])
+        print(history.history["val_acc"])
+
+        if not os.path.exists("plots"):
+            os.makedirs("plots")
+        pyplot.plot(history.history["loss"])
+        pyplot.plot(history.history["val_loss"])
+        pyplot.title("model train vs validation loss")
+        pyplot.ylabel("loss")
+        pyplot.xlabel("epoch")
+        pyplot.legend(["train", "validation"], loc="upper right")
+        pyplot.savefig(f"plots/{self.name}.png")
+
         print(model.evaluate(x_test, y_test))
 
 
+# Model to answer: If you were to buy at random based on model prediction,  what
+# hold period shows highest probability of profit
 # TODO: stochastic random search and/or bayesian hyperparam optimization
-hypers = [(60, 3, 0.4), (120, 3, 0.4)]
+hypers = [(120, 3, 0.4)]
 for wlen, flen, dropout in hypers:
     wlen = int(wlen)
     flen = int(flen)
@@ -270,12 +322,15 @@ for wlen, flen, dropout in hypers:
     print("\tdropout ratio: ", dropout)
     PriceRNN(
         pair="BTCUSD",
-        period="1min",
+        period="1hr",
         window_len=wlen,
         forecast_len=flen,
         dropout=dropout,
-        years=["2015", "2016", "2017", "2018", "2019"],
-        epochs=10,
-        data_dir="data",
+        epochs=13,
+        batch_size=256,
+        testpct=0.20,
+        learning_rate=0.0005,
+        years=["2017", "2018", "2019"],
+        data_dir="/crypto_data",
         skip_rows=2,
     ).run()
