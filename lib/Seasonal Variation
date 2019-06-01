@@ -25,3 +25,6 @@ plt.plot(seasonal,label='Seasonality')
 print(seasonal)
 
 #From there add the seasonal variable to one of the predictors into the LSTM
+
+
+# Graph of seasonality taken from ARIMA modeling: https://ibb.co/PZqPQ6L
