@@ -1,5 +1,7 @@
+input_log = np.log(df['input'])
+
 from statsmodels.tsa.seasonal import seasonal_decompose
-decomposition = seasonal_decompose(ts_log)
+decomposition = seasonal_decompose(input_log)
 
 trend = decomposition.trend
 seasonal = decomposition.seasonal
