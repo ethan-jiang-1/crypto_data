@@ -346,7 +346,7 @@ for wlen, flen in hypers:
         forecast_len=flen,
         dropout=0.4,
         epochs=75,
-        batch_size=32,
+        batch_size=64,
         hidden_node_sizes=[64] * 4,
         testpct=0.40,
         learning_rate=0.001,
