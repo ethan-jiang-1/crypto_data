@@ -11,7 +11,7 @@ import numpy as np
 import time
 import pandas as pd
 
-# from pykalman import KalmanFilter
+from pykalman import KalmanFilter
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormalization
@@ -121,11 +121,57 @@ class PriceRNN:
         main_df.dropna(inplace=True)
         return main_df
 
-    def run(self):
-        random.seed(230)  # determinism
+    def normalize(self, df):
+        print("NORMALIZING DATA:\n", df.head())
+        for col in df.columns:
+            if col != "target":
+                df[col] = df[col].pct_change(fill_method="ffill")
+                df = df[~df.isin([np.nan, np.inf, -np.inf]).any(1)]
+                df[col] = preprocessing.scale(df[col].values)
+        return df
 
-        main_df = self.extract_data()
+    def denoise(self, df):
+        for col in df.columns:
+            if col not in ["target"]:
+                kf = KalmanFilter(initial_state_mean=0, n_dim_obs=1)
+                prices = df[col].values
+                results = kf.em(prices).smooth(prices)
+                df[col] = results[0]
+        df.dropna(inplace=True)
+        return df
 
+    def split_dataset(self, main_df):
+        times = sorted(main_df.index.values)
+        test_cutoff = times[-int(self.testpct * len(times))]
+        print("Test cutoff: ", test_cutoff)
+        # SPLIT DATA INTO (test_cutoff)% TEST, (1-test_cutoff)% TRAIN
+        test_df = main_df[(main_df.index >= test_cutoff)]
+        train_df = main_df[(main_df.index < test_cutoff)]
+        return train_df, test_df
+
+    def balance(self, seq_data):
+
+        print("BALANCING DATA:\n", seq_data[0][0][0:1][0])
+        # balance the data
+        buys, sells = [], []
+        for seq, target in seq_data:
+            if target == 0:
+                sells.append([seq, target])
+            elif target == 1:
+                buys.append([seq, target])
+
+        # randomize
+        random.shuffle(buys)
+        random.shuffle(sells)
+        # balance out # of buys and sells to avoid skew in dataset distribution
+        lower = min(len(buys), len(sells))
+        buys = buys[:lower]
+        sells = sells[:lower]
+
+        seq_data = buys + sells
+        return seq_data
+
+    def transform_data(self, main_df):
         # add a future price column shifted in relation to close
         main_df["future"] = main_df[f"{self.pair}_close"].shift(-self.forecast_len)
         # classify and add target ground truth column
@@ -134,15 +180,66 @@ class PriceRNN:
         )
         main_df = main_df.drop("future", 1)  # only needed to calculate target
 
+        # better results turning off?
         # main_df = self.denoise(main_df)
 
-        x_train, y_train, x_test, y_test = self.split_and_preprocess_df(main_df)
+        train_df, test_df = self.split_dataset(main_df)
+
+        # NORMALIZE
+        train_df = self.normalize(train_df)
+        test_df = self.normalize(test_df)
+        print("Normalized train: ", len(train_df), train_df.head())
+        print("Normalized test: ", len(test_df), test_df.head())
+        train_df.dropna(inplace=True)
+        test_df.dropna(inplace=True)
+        return train_df, test_df
+
+    def convert_to_seq(self, df):
+        print("ARRANGING DATA:\n", df.head(10))
+        # convert data into seq -> target pairs for training to see how
+        # self.window_len 'lookback' period effects prediction accuracy
+        seq_data = []
+        # acts as sliding window - old values drop off
+        prev_days = deque(maxlen=self.window_len)
+        for i in df.values:
+            prev_days.append([n for n in i[:-1]])  # exclude target (i[:-1])
+            if len(prev_days) == self.window_len:
+                seq_data.append([np.array(prev_days), i[-1]])
+        random.shuffle(seq_data)  # prevent skew
+        return seq_data
+
+    # arrange, partition
+    def load_splits(self, df):
+        seq_data = self.convert_to_seq(df)
+        seq_data = self.balance(seq_data)
+
+        print("SPLITTING DATA:\n", seq_data[0][0][0:1][0])
+        # split data into train, test sets
+        # to prevent buys or sells from skewing data, randomize
+        random.shuffle(seq_data)
+        x, y = [], []
+        for window_seq, target in seq_data:
+            x.append(window_seq)
+            y.append(target)
+
+        return np.array(x), y
+
+    def run(self):
+        random.seed(230)  # determinism
+
+        # Extract, Transform, Load
+        main_df = self.extract_data()
+        train_df, test_df = self.transform_data(main_df)
+        x_train, y_train = self.load_splits(train_df)
+        x_test, y_test = self.load_splits(test_df)
 
         # shows balance
-        print(f"train data: {len(x_train)}, validation data: {len(x_test)}")
-        print(f"TRAIN do not buys: {y_train.count(0)} TRAIN buys: {y_train.count(1)}")
+        print(f"xtrain: {len(x_train)}, xtest: {len(x_test)}")
         print(
-            f"VALIDATION Do not buys: {y_test.count(0)} VALIDATION buys: {y_test.count(1)}"
+            f"y_train.count(0): {y_train.count(0)} y_train.count(1): {y_train.count(1)}"
+        )
+        print(
+            f"y_test.count(0) : {y_test.count(0)} y_train.count(0): {y_test.count(1)}"
         )
 
         model = self.model(x_train)
@@ -193,85 +290,6 @@ class PriceRNN:
         print(model.evaluate(x_test, y_test))
         print(model.summary())
 
-    def balance(self, seq_data):
-        print("BALANCING DATA:\n", seq_data[0][0][0:2])
-        # balance the data
-        buys, sells = [], []
-        for seq, target in seq_data:
-            if target == 0:
-                sells.append([seq, target])
-            elif target == 1:
-                buys.append([seq, target])
-
-        # randomize
-        random.shuffle(buys)
-        random.shuffle(sells)
-        # balance out the distribution of buys and sells
-        lower = min(len(buys), len(sells))
-        buys = buys[:lower]
-        sells = sells[:lower]
-        seq_data = buys + sells
-        return seq_data
-
-    def convert_to_seq(self, df):
-        print("ARRANGING DATA:\n", df.head(10))
-        # convert data into seq -> target pairs for training to see how
-        # self.window_len 'lookback' period effects prediction accuracy
-        seq_data = []
-        # sliding window cache - old values drop off
-        prev_days = deque(maxlen=self.window_len)
-        for i in df.values:
-            prev_days.append([n for n in i[:-1]])  # exclude target (i[:-1])
-            if len(prev_days) == self.window_len:
-                seq_data.append([np.array(prev_days), i[-1]])
-        random.shuffle(seq_data)  # prevent skew
-        return seq_data
-
-    def split_sequences(self, seq_data):
-        print("SPLITTING DATA:\n", seq_data[0][0][0:2])
-        # split data into train, test sets
-        # to prevent buys or sells from skewing data, randomize
-        random.shuffle(seq_data)
-        x, y = [], []
-        for window_seq, target in seq_data:
-            x.append(window_seq)
-            y.append(target)
-
-        print("TRAINING DATA SAMPLE:\n", x[0][0][0:2][:])
-        print("TEST DATA SAMPLE:\n", len(y))
-        return np.array(x), y
-
-    # arrange, balance, partition
-    def preprocess_df(self, df):
-        seq_data = self.convert_to_seq(df)
-        seq_data = self.balance(seq_data)
-        x, y = self.split_sequences(seq_data)
-        return x, y
-
-    def split_and_preprocess_df(self, df):
-        times = sorted(df.index.values)
-        print("times", len(times))
-        test_cutoff = times[-int(self.testpct * len(times))]
-        print("test_cutoff", test_cutoff)
-        # SPLIT DATA INTO (1-test_cutoff)% TRAIN, (test_cutoff)% VALIDATE
-        test_df = df[(df.index >= test_cutoff)]
-        df = df[(df.index < test_cutoff)]
-
-        ## NORMALIZE
-        df = self.normalize(df)
-        test_df = self.normalize(test_df, train=False)
-        print("normalized train", df.head())
-        print("normalized test", test_df.head())
-
-        df.dropna(inplace=True)
-        # import pdb
-        #
-        # pdb.set_trace()
-        x_train, y_train = self.preprocess_df(df)
-        x_test, y_test = self.preprocess_df(test_df)
-
-        return x_train, y_train, x_test, y_test
-
     def model(self, x_train):
         model = Sequential()
         print("train shape", x_train.shape)
@@ -294,39 +312,11 @@ class PriceRNN:
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        # model.add(Dense(self.hidden_node_sizes[3]))
-        # model.add(Dropout(self.dropout))
-        # model.add(BatchNormalization())
-
         model.add(Dense(32, activation="relu"))
         model.add(Dropout(self.dropout))
 
         model.add(Dense(2, activation="softmax"))
         return model
-
-    def normalize(self, df, train=True):
-        print("NORMALIZING DATA:\n", df.head())
-        # normalize BTCUSD_close, BTCUSD_volume
-        for col in df.columns:
-            if col != "target":
-                df[col] = df[col].pct_change(fill_method="ffill")
-                df = df[~df.isin([np.nan, np.inf, -np.inf]).any(1)]
-                df[col] = preprocessing.scale(df[col].values)
-        return df
-
-    def moving_average(self, seq, periods=10):
-        weights = np.ones(periods) / periods
-        return np.convolve(seq, weights, mode="valid")
-
-    def denoise(self, df):
-        for col in df.columns:
-            if col != "target":
-                kf = KalmanFilter(initial_state_mean=0, n_dim_obs=1)
-                prices = df[col].values
-                results = kf.em(prices).smooth(prices)
-                df[col] = results[0]
-        df.dropna(inplace=True)
-        return df
 
 
 # Model to answer: If you were to buy at random based on model prediction, what
@@ -345,10 +335,10 @@ for wlen, flen in hypers:
         window_len=wlen,
         forecast_len=flen,
         dropout=0.4,
-        epochs=75,
+        epochs=100,
         batch_size=64,
-        hidden_node_sizes=[64] * 4,
-        testpct=0.40,
+        hidden_node_sizes=[56] * 4,
+        testpct=0.35,
         learning_rate=0.001,
         data_dir="/crypto_data",
     ).run()
