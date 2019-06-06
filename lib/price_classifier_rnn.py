@@ -1,5 +1,5 @@
 """
-An deep RNN model for price sequence data
+An deep RNN model for binary classification on price sequence data
 """
 import os
 import re
@@ -21,7 +21,7 @@ from sklearn import preprocessing
 from matplotlib import pyplot
 
 
-class PriceRNN:
+class PriceClassifierRNN:
     def __init__(
         self,
         pair="BTCUSD",
@@ -76,7 +76,12 @@ class PriceRNN:
         self.file_filter = f"{data_provider}_{pair}_*{period}.csv"
 
     def classify(self, current, future):
-        if float(future) > float(current):
+        try:
+            pct_change = abs(float(future) - float(current)) / float(current)
+        except ZeroDivisionError:
+            return 0
+
+        if pct_change > 0.2:
             return 1
         else:
             return 0
@@ -292,8 +297,6 @@ class PriceRNN:
 
     def model(self, x_train):
         model = Sequential()
-        print("train shape", x_train.shape)
-        print("train first example", len(x_train[0]))
         model.add(
             CuDNNLSTM(
                 self.hidden_node_sizes[0],
@@ -329,7 +332,7 @@ for wlen, flen in hypers:
     print("RUNNING MODEL: ")
     print("\twindow length: ", wlen)
     print("\tforecast length: ", flen)
-    PriceRNN(
+    PriceClassifierRNN(
         pair="BTCUSD",
         period="1d",
         window_len=wlen,
@@ -340,5 +343,6 @@ for wlen, flen in hypers:
         hidden_node_sizes=[56] * 4,
         testpct=0.35,
         learning_rate=0.001,
+        decay=1e-6,
         data_dir="/crypto_data",
     ).run()
