@@ -74,20 +74,20 @@ class PriceRNN:
             f"{self.data_dir}/btc_training.csv",
             index_col="Date",
             parse_dates=True,
-            usecols=["Date", "Price", "Vol2"],
+            usecols=["Date", "Price", "Vol2", "High"],
         )
 
         df = df[(df.index >= "2017-01-01")]
 
-        # the features we care about
-        df = df[["Price", "Vol2"]]
+        # the features we care about, volume is notoriously inaccurate in cryptoland
+        df = df[["Price", "High"]]
 
         df.fillna(method="ffill", inplace=True)
         df.dropna(inplace=True)
         return df
 
     def transform_data(self, main_df):
-        # add a future price target column shifted in relation to close
+        # add the future price flen out as target column shifted in relation to close
         main_df["target"] = main_df["Price"].shift(-self.forecast_len)
         main_df = main_df[~main_df.isin([np.nan, np.inf, -np.inf]).any(1)]
 
@@ -163,7 +163,9 @@ class PriceRNN:
 
         opt = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.decay)
 
-        model.compile(loss=self.loss_func, optimizer=opt, metrics=["mse", "acc"])
+        model.compile(
+            loss=self.loss_func, optimizer=opt, metrics=["mean_absolute_error", "acc"]
+        )
 
         if not os.path.exists("logs"):
             os.makedirs("logs")
@@ -226,6 +228,10 @@ class PriceRNN:
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
+        model.add(Dense(self.hidden_node_sizes[3]))
+        model.add(Dropout(self.dropout))
+        model.add(BatchNormalization())
+
         model.add(Dense(32, activation="relu"))
         model.add(Dropout(self.dropout))
 
@@ -267,8 +273,8 @@ for wlen, flen in [
         epochs=100,
         batch_size=32,
         hidden_node_sizes=[128] * 4,
-        testpct=0.25,
+        testpct=0.20,
         learning_rate=0.001,
         decay=1e-6,
-        data_dir="data",
+        data_dir="/crypto_data",
     ).run()
