@@ -19,7 +19,7 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, BatchNormal
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.regularizers import L1L2
 from sklearn import preprocessing
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 
 
 class PriceRNN:
@@ -27,69 +27,76 @@ class PriceRNN:
         self,
         pair="BTCUSD",
         period="1min",
-        window_len=60,
-        forecast_len=3,
+        wlen=60,
+        flen=3,
         years=["2015", "2016", "2017", "2018", "2019"],
         epochs=10,
         dropout=0.2,
         testpct=0.15,
-        loss_func="mse",
+        lossfunc="mse",
         batch_size=64,
-        hidden_node_sizes=[128] * 4,
-        learning_rate=0.001,
+        neurons=[128] * 4,
+        lr=0.001,
         decay=1e-6,
         scaler=preprocessing.MinMaxScaler(feature_range=(0, 1)),
-        data_provider="gemini",
-        data_dir="data",
+        dataprovider="gemini",
+        datadir="data",
         skiprows=3,
         chunksize=10_000,
     ):
-        self.data_provider = data_provider
-        self.data_dir = data_dir
+        self.dataprovider = dataprovider
+        self.datadir = datadir
         self.pair = pair
         self.period = period
-        self.file_filter = f"{data_provider}_{pair}_*{period}.csv"
-        self.window_len = window_len  # price data window
-        self.forecast_len = forecast_len  # how many data points in future to predict
+        self.file_filter = f"{dataprovider}_{pair}_*{period}.csv"
+        self.wlen = wlen  # price data window
+        self.flen = flen  # how many data points in future to predict
         self.years = years
         self.epochs = epochs
         self.dropout = dropout
         self.testpct = testpct
-        self.loss_func = loss_func
+        self.lossfunc = lossfunc
         self.batch_size = batch_size
-        self.hidden_node_sizes = hidden_node_sizes
-        self.learning_rate = learning_rate
+        self.neurons = neurons
+        self.lr = lr
         self.decay = decay
         self.scaler = scaler
-        self.name = f"{pair}-WLEN{window_len}-FLEN{forecast_len}-{int(time.time())}"
         self.skiprows = skiprows
         self.chunksize = chunksize
-        self.col_names = ["date", "close", "open", "high", "low", "volume", "change"]
-        self.file_filter = f"{data_provider}_{pair}_*{period}.csv"
+        self.usecols = ["Date", "Price", "Vol2", "High"]
+        self.index_col = "Date"
+        self.parse_dates = True
+        self.name = f"{pair}-DPT{dropout}-BCH{batch_size}-NEUR{neurons}-LR{lr}-TPCT{testpct}-WLEN{wlen}-FLEN{flen}-{int(time.time())}"
+        self.file_filter = f"{dataprovider}_{pair}_*{period}.csv"
 
     def extract_data(self):
-        df = pd.DataFrame()
+        main_df = pd.DataFrame()
 
         df = pd.read_csv(
-            f"{self.data_dir}/btc_training.csv",
-            index_col="Date",
-            parse_dates=True,
-            usecols=["Date", "Price", "Vol2", "High"],
+            f"{self.datadir}/btc_training.csv",
+            index_col=self.index_col,
+            parse_dates=self.parse_dates,
+            usecols=self.usecols,
         )
 
         df = df[(df.index >= "2017-01-01")]
 
         # the features we care about, volume is notoriously inaccurate in cryptoland
         df = df[["Price", "High"]]
+        if len(main_df) == 0:
+            main_df = df
+        else:
+            main_df = main_df.join(df)
 
-        df.fillna(method="ffill", inplace=True)
-        df.dropna(inplace=True)
-        return df
+        main_df.fillna(method="ffill", inplace=True)
+        main_df.dropna(inplace=True)
+        return main_df
 
     def transform_data(self, main_df):
         # add the future price flen out as target column shifted in relation to close
-        main_df["target"] = main_df["Price"].shift(-self.forecast_len)
+        main_df["target"] = main_df["Price"].shift(-self.flen)
         main_df = main_df[~main_df.isin([np.nan, np.inf, -np.inf]).any(1)]
+        self.main_df = main_df  # pure un-altered features for future use
 
         train_df, test_df = self.split_dataset(main_df)
 
@@ -106,7 +113,7 @@ class PriceRNN:
 
     # arrange, split
     def load(self, df):
-        seq_data = self.convert_to_seq(df)
+        seq_data = self.convert_df_to_input(df)
         # seq_data = self.balance(seq_data)
 
         print("SPLITTING DATA:\n", seq_data[0][0][0:1][0])
@@ -121,18 +128,18 @@ class PriceRNN:
         return np.array(x), y
 
     # convert data into seq -> target pairs
-    def convert_to_seq(self, df):
+    def convert_df_to_input(self, df):
         print("ARRANGING DATA:\n", df.head(10))
-        seq_data = []
-        # acts as sliding window - old values drop off
-        prev_days = deque(maxlen=self.window_len)
-        for i in df.values:
-            prev_days.append([n for n in i[:-1]])  # exclude target (i[:-1])
-            if len(prev_days) == self.window_len:
-                seq_data.append([np.array(prev_days), i[-1]])
+        model_input = []
 
-        random.shuffle(seq_data)  # prevent skew in distribution
-        return seq_data
+        prev_seq = deque(maxlen=self.wlen)  # acts as sliding window
+        for i in df.values:
+            prev_seq.append([n for n in i[:-1]])  # exclude target (i[:-1])
+            if len(prev_seq) == self.wlen:
+                model_input.append([np.array(prev_seq), i[-1]])
+
+        random.shuffle(model_input)  # prevent skew in distribution
+        return model_input
 
     def split_dataset(self, main_df):
         times = sorted(main_df.index.values)
@@ -149,7 +156,6 @@ class PriceRNN:
         # Extract, Transform, Load
         main_df = self.extract_data()
         train_df, test_df = self.transform_data(main_df)
-
         x_train, y_train = self.load(train_df)
         x_test, y_test = self.load(test_df)
 
@@ -161,10 +167,10 @@ class PriceRNN:
         print(f"y_test: {len(y_train)}, y_test: {len(y_test)}")
         model = self.model(x_train)
 
-        opt = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.decay)
+        opt = tf.keras.optimizers.Adam(lr=self.lr, decay=self.decay)
 
         model.compile(
-            loss=self.loss_func, optimizer=opt, metrics=["mean_absolute_error", "acc"]
+            loss=self.lossfunc, optimizer=opt, metrics=["mean_absolute_error", "acc"]
         )
 
         if not os.path.exists("logs"):
@@ -190,15 +196,18 @@ class PriceRNN:
             callbacks=[tensorboard],
         )
 
+        self.predict(model)
+
         if not os.path.exists("plots"):
             os.makedirs("plots")
-        pyplot.plot(history.history["loss"])
-        pyplot.plot(history.history["val_loss"])
-        pyplot.title("model train vs validation loss")
-        pyplot.ylabel("loss")
-        pyplot.xlabel("epoch")
-        pyplot.legend(["train", "validation"], loc="upper right")
-        pyplot.savefig(f"plots/{self.name}.png")
+        plt.plot(history.history["loss"])
+        plt.plot(history.history["val_loss"])
+        plt.title("model train vs validation loss")
+        plt.ylabel("loss")
+        plt.xlabel("epoch")
+        plt.legend(["train", "validation"], loc="upper right")
+        plt.savefig(f"plots/{self.name}.png")
+        plt.clf()
 
         # print(history.history["loss"])
         # print(history.history["acc"])
@@ -208,27 +217,71 @@ class PriceRNN:
         print(model.evaluate(x_test, y_test))
         print(model.summary())
 
+    def predict(self, model):
+        df_test = pd.read_csv(
+            f"{self.datadir}/btc_test.csv", index_col="Date", parse_dates=True
+        )
+        actual_btc_price = df_test.iloc[:, 1:2].values
+
+        df_test = df_test[["Price", "High"]]
+
+        df_total = pd.concat(
+            (self.main_df[["Price", "High"]], df_test[["Price", "High"]]), axis=0
+        )
+
+        X_test = []
+        inputs = df_total[len(df_total) - len(df_test) - self.wlen :].values
+        inputs = self.scaler.transform(inputs)
+        prev_days = deque(maxlen=self.wlen)
+        for i in inputs:
+            prev_days.append(i)
+            if len(prev_days) == self.wlen:
+                X_test.append(np.array(prev_days))
+
+        X_test = np.array(X_test)
+        X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 2))
+        pred_price = model.predict(X_test)
+        pred_price = self.scaler.inverse_transform(pred_price)
+        pred_price = pd.DataFrame(pred_price)
+        print(pred_price.info())
+        print(pred_price.head())
+        # Visualise the results
+        plt.plot(actual_btc_price, color="red", label="Actual BTC Price")
+        plt.plot(pred_price, color="blue", label="Predicted BTC Price")
+        plt.title("BTC Prediction")
+        plt.xlabel("Time")
+        plt.ylabel("BTC")
+        plt.legend()
+        plt.savefig(f"plots/prediction.png")
+        plt.clf()
+
     def model(self, x_train):
         model = Sequential()
         model.add(
             CuDNNLSTM(
-                self.hidden_node_sizes[0],
-                input_shape=(x_train.shape[1:]),
-                return_sequences=True,
+                self.neurons[0], input_shape=(x_train.shape[1:]), return_sequences=True
             )
         )
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(CuDNNLSTM(self.hidden_node_sizes[1], return_sequences=True))
+        model.add(CuDNNLSTM(self.neurons[1], return_sequences=True))
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(CuDNNLSTM(self.hidden_node_sizes[2]))
+        model.add(CuDNNLSTM(self.neurons[2]))
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(Dense(self.hidden_node_sizes[3]))
+        # model.add(CuDNNLSTM(self.neurons[2]))
+        # model.add(Dropout(self.dropout))
+        # model.add(BatchNormalization())
+        #
+        # model.add(CuDNNLSTM(self.neurons[2]))
+        # model.add(Dropout(self.dropout))
+        # model.add(BatchNormalization())
+        #
+        model.add(Dense(self.neurons[3]))
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
@@ -243,38 +296,26 @@ class PriceRNN:
 # hold period shows highest probability of profit
 # TODO: random search and/or bayesian hyperparam optimization
 w = 120
-for wlen, flen in [
-    # (w, 6),
-    # (w, 7),
-    # (w, 8),
-    # (w, 9),
-    # (w, 11),
-    # (w, 12),
-    (w, 13),
-    # (w, 14),
-    # (w, 15),
-    # (w, 16),
-    # (w, 17),
-    # (w, 18),
-    # (w, 19),
-    # (w, 20),
+for wlen, flen, btch, neurons, lr in [
+    (w, 13, 5, 20, 0.0001),
+    (w, 13, 15, 35, 0.0001),
+    (w, 13, 20, 50, 0.0001),
 ]:
     wlen = int(wlen)
     flen = int(flen)
-    print("RUNNING MODEL: ")
-    print("\twindow length: ", wlen)
-    print("\tforecast length: ", flen)
-    PriceRNN(
-        pair="BTCUSD",
-        period="1d",
-        window_len=wlen,
-        forecast_len=flen,
-        dropout=0.5,
-        epochs=100,
-        batch_size=32,
-        hidden_node_sizes=[128] * 4,
-        testpct=0.20,
-        learning_rate=0.001,
-        decay=1e-6,
-        data_dir="/crypto_data",
-    ).run()
+    for dpt in [0.05, 0.1, 0.15]:
+        for tspct in [0.26, 0.29, 0.32]:
+            PriceRNN(
+                pair="BTCUSD",
+                period="1d",
+                wlen=wlen,
+                flen=flen,
+                dropout=dpt,
+                epochs=140,
+                batch_size=btch,
+                neurons=[neurons] * 4,
+                testpct=tspct,
+                lr=lr,
+                decay=1e-6,
+                datadir="/crypto_data",
+            ).run()

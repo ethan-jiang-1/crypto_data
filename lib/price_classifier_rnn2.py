@@ -3,7 +3,6 @@ An deep RNN model for binary classification on price sequence data
 """
 import os
 import re
-from pdb import set_trace as bp
 import fnmatch
 from itertools import zip_longest
 from collections import deque
@@ -36,19 +35,19 @@ class PriceClassifierRNN:
         loss_func="sparse_categorical_crossentropy",
         batch_size=64,
         hidden_node_sizes=[128] * 4,
-        lr=0.001,
+        learning_rate=0.001,
         decay=1e-6,
         scaler=preprocessing.MinMaxScaler(feature_range=(0, 1)),
-        dataprovider="gemini",
-        datadir="data",
+        data_provider="gemini",
+        data_dir="data",
         skiprows=3,
         chunksize=10_000,
     ):
-        self.dataprovider = dataprovider
+        self.data_provider = data_provider
         self.data_dir = data_dir
         self.pair = pair
         self.period = period
-        self.file_filter = f"{dataprovider}_{pair}_*{period}.csv"
+        self.file_filter = f"{data_provider}_{pair}_*{period}.csv"
         self.window_len = window_len  # price data window
         self.forecast_len = forecast_len  # how many data points in future to predict
         self.years = years
@@ -58,10 +57,10 @@ class PriceClassifierRNN:
         self.loss_func = loss_func
         self.batch_size = batch_size
         self.hidden_node_sizes = hidden_node_sizes
-        self.lr = lr
+        self.learning_rate = learning_rate
         self.decay = decay
-        self.datdir = scaler
-        self.name = f"{pair}-WLEN{wlen}-FLEN{flen}-DPT{dropout}-BCH{batchsize}-neurons{neurons}{int(time.time())}"
+        self.scaler = scaler
+        self.name = f"{pair}-WLEN{window_len}-FLEN{forecast_len}-{int(time.time())}"
         self.skiprows = skiprows
         self.chunksize = chunksize
         self.col_names = [
@@ -74,10 +73,15 @@ class PriceClassifierRNN:
             "close",
             "volume",
         ]
-        self.file_filter = f"{dataprovider}_{pair}_*{period}.csv"
+        self.file_filter = f"{data_provider}_{pair}_*{period}.csv"
 
     def classify(self, current, future):
-        if float(future) > float(current):
+        try:
+            pct_change = abs(float(future) - float(current)) / float(current)
+        except ZeroDivisionError:
+            return 0
+
+        if pct_change > 0.2:
             return 1
         else:
             return 0
@@ -245,9 +249,9 @@ class PriceClassifierRNN:
 
         model = self.model(x_train)
 
-        opt = tf.keras.optimizers.Adam(lr=self.lr, decay=self.decay)
+        opt = tf.keras.optimizers.Adam(lr=self.learning_rate, decay=self.decay)
 
-        model.compile(loss=self.loss_func, optidatdir=opt, metrics=["accuracy"])
+        model.compile(loss=self.loss_func, optimizer=opt, metrics=["accuracy"])
 
         if not os.path.exists("logs"):
             os.makedirs("logs")
@@ -338,7 +342,7 @@ for wlen, flen in hypers:
         batch_size=64,
         hidden_node_sizes=[56] * 4,
         testpct=0.35,
-        lr=0.001,
+        learning_rate=0.001,
         decay=1e-6,
-        datadir="/crypto_data",
+        data_dir="/crypto_data",
     ).run()
