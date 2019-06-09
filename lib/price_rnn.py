@@ -297,9 +297,9 @@ class PriceRNN:
 # TODO: random search and/or bayesian hyperparam optimization
 w = 120
 for wlen, flen, btch, neurons, lr in [
-    (w, 13, 5, 20, 0.0001),
-    (w, 13, 15, 35, 0.0001),
-    (w, 13, 20, 50, 0.0001),
+    (w, 13, 5, 20, 0.001),
+    (w, 13, 15, 35, 0.001),
+    (w, 13, 20, 50, 0.001),
 ]:
     wlen = int(wlen)
     flen = int(flen)
