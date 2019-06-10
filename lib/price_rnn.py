@@ -96,7 +96,7 @@ class PriceRNN:
         # add the future price flen out as target column shifted in relation to close
         main_df["target"] = main_df["Price"].shift(-self.flen)
         main_df = main_df[~main_df.isin([np.nan, np.inf, -np.inf]).any(1)]
-        self.main_df = main_df  # pure un-altered features for future use
+        self.main_df = main_df  # store pure original un-altered features
 
         train_df, test_df = self.split_dataset(main_df)
 
@@ -113,7 +113,7 @@ class PriceRNN:
 
     # arrange, split
     def load(self, df):
-        seq_data = self.convert_df_to_input(df)
+        seq_data = self.load_input_sequences(df)
         # seq_data = self.balance(seq_data)
 
         print("SPLITTING DATA:\n", seq_data[0][0][0:1][0])
@@ -128,7 +128,7 @@ class PriceRNN:
         return np.array(x), y
 
     # convert data into seq -> target pairs
-    def convert_df_to_input(self, df):
+    def load_input_sequences(self, df):
         print("ARRANGING DATA:\n", df.head(10))
         model_input = []
 
@@ -177,15 +177,15 @@ class PriceRNN:
             os.makedirs("logs")
         tensorboard = TensorBoard(log_dir=f"logs/{self.name}")
 
-        # if not os.path.exists("models"):
-        #     os.makedirs("models")
+        if not os.path.exists("models"):
+            os.makedirs("models")
         # unique filename to include epoch and validation accuracy for that epoch
-        # filepath = "RNN_Final-{epoch:02d}-{val_loss:.3f}"
-        # checkpoint = ModelCheckpoint(
-        #     "models/{}.model".format(
-        #         filepath, monitor="val_loss", verbose=1, save_best_only=True, mode="max"
-        #     )
-        # )
+        filepath = "RNN_Final-{epoch:02d}-{val_loss:.3f}"
+        checkpoint = ModelCheckpoint(
+            "models/{}.model".format(
+                filepath, monitor="val_loss", verbose=1, save_best_only=True, mode="max"
+            )
+        )
 
         history = model.fit(
             x_train,
@@ -209,10 +209,6 @@ class PriceRNN:
         plt.savefig(f"plots/{self.name}.png")
         plt.clf()
 
-        # print(history.history["loss"])
-        # print(history.history["acc"])
-        # print(history.history["val_loss"])
-        # print(history.history["val_acc"])
         print("Eval Metrics ", model.metrics_names)
         print(model.evaluate(x_test, y_test))
         print(model.summary())
@@ -258,26 +254,26 @@ class PriceRNN:
     def model(self, x_train):
         model = Sequential()
         model.add(
-            CuDNNLSTM(
+            LSTM(
                 self.neurons[0], input_shape=(x_train.shape[1:]), return_sequences=True
             )
         )
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(CuDNNLSTM(self.neurons[1], return_sequences=True))
+        model.add(LSTM(self.neurons[1], return_sequences=True))
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        model.add(CuDNNLSTM(self.neurons[2]))
+        model.add(LSTM(self.neurons[2]))
         model.add(Dropout(self.dropout))
         model.add(BatchNormalization())
 
-        # model.add(CuDNNLSTM(self.neurons[2]))
+        # model.add(LSTM(self.neurons[2]))
         # model.add(Dropout(self.dropout))
         # model.add(BatchNormalization())
         #
-        # model.add(CuDNNLSTM(self.neurons[2]))
+        # model.add(LSTM(self.neurons[2]))
         # model.add(Dropout(self.dropout))
         # model.add(BatchNormalization())
         #
@@ -288,34 +284,25 @@ class PriceRNN:
         model.add(Dense(32, activation="relu"))
         model.add(Dropout(self.dropout))
 
-        model.add(Dense(1, activation="linear"))
+        model.add(Dense(1))
         return model
 
 
-# Model to answer: If you were to buy at random based on model prediction, what
-# hold period shows highest probability of profit
-# TODO: random search and/or bayesian hyperparam optimization
 w = 120
-for wlen, flen, btch, neurons, lr in [
-    (w, 13, 5, 20, 0.001),
-    (w, 13, 15, 35, 0.001),
-    (w, 13, 20, 50, 0.001),
-]:
+for wlen, flen, btch, neurons in [(w, 13, 15, 35)]:
     wlen = int(wlen)
     flen = int(flen)
-    for dpt in [0.05, 0.1, 0.15]:
-        for tspct in [0.26, 0.29, 0.32]:
-            PriceRNN(
-                pair="BTCUSD",
-                period="1d",
-                wlen=wlen,
-                flen=flen,
-                dropout=dpt,
-                epochs=140,
-                batch_size=btch,
-                neurons=[neurons] * 4,
-                testpct=tspct,
-                lr=lr,
-                decay=1e-6,
-                datadir="/crypto_data",
-            ).run()
+    PriceRNN(
+        pair="BTCUSD",
+        period="1d",
+        wlen=wlen,
+        flen=flen,
+        dropout=0.2,
+        epochs=150,
+        batch_size=btch,
+        neurons=[neurons] * 4,
+        testpct=0.28,
+        lr=0.001,
+        decay=1e-6,
+        datadir="/crypto_data",
+    ).run()
