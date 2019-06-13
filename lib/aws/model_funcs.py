@@ -11,7 +11,7 @@ def train(model, x, y, validation_data, epochs, batch_size, save_dir):
     
     save_fname = os.path.join(save_dir, '%s-e%s.h5' % (dt.datetime.now().strftime('%d%m%Y-%H%M%S'), str(epochs)))
     callbacks = [
-#         EarlyStopping(monitor='val_loss', patience=7),
+        EarlyStopping(monitor='val_loss', patience=100),
         ModelCheckpoint(filepath=save_fname, monitor='val_loss', save_best_only=True),
         TensorBoard(log_dir=os.path.join(save_dir, "logs/{}".format(dt.datetime.now().strftime('%d%m%Y-%H%M%S'))))
     ]
