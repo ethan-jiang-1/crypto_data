@@ -36,15 +36,3 @@ http://cs230.stanford.edu/projects_fall_2018/reports/12446738.pdf)
 - [python statsmodel](https://www.statsmodels.org/dev/index.html)
 
 - [EDA](https://medium.com/activewizards-machine-learning-company/bitcoin-price-forecasting-with-deep-learning-algorithms-eb578a2387a3)
-
-SU Project Papers:
-
-http://cs230.stanford.edu/projects_fall_2018/reports/12447173.pdf 
-
-http://cs230.stanford.edu/projects_fall_2018/reports/12444910.pdf
-
-http://cs230.stanford.edu/projects_fall_2018/reports/12446990.pdf
-
-http://cs230.stanford.edu/projects_fall_2018/reports/12444265.pdf 
-
-http://cs230.stanford.edu/projects_fall_2018/reports/12446738.pdf
